@@ -1,0 +1,19 @@
+# # uncomment if want to use the internal grafana
+# apiVersion: networking.k8s.io/v1
+# kind: Ingress
+# metadata:
+#   name: grafana-server
+#   namespace: monitoring
+# spec:
+#   ingressClassName: traefik
+#   rules:
+#   - host: grafana.home.lab
+#     http:
+#       paths:
+#       - path: /
+#         pathType: Prefix
+#         backend:
+#           service:
+#             name: prometheus-grafana
+#             port:
+#               number: 80
