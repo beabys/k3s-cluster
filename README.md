@@ -1,33 +1,39 @@
-# k3s-cluster
+# k3s-cluster installations steps
+create a new database and a new ha proxy using docker
 
+### on master one
+```bash
+curl -sfL https://get.k3s.io | K3S_DATASTORE_ENDPOINT='mysql://user:pass@tcp(ip:port)/db' K3S_KUBECONFIG_MODE="644" sh -s - server --tls-san <ip of the loadbalance (haproxy)> --disable traefik --disable servicelb --disable local-storage
+```
+### get the token from master one
+```bash
+cat /var/lib/rancher/k3s/server/node-token
+```
+### on the other masters
+```bash
+curl -sfL https://get.k3s.io | K3S_DATASTORE_ENDPOINT='mysql://user:pass@tcp(ip:port)/db' K3S_KUBECONFIG_MODE="644" sh -s - server --token=<token from master one> --tls-san <ip of the loadbalance (haproxy)> --disable traefik --disable servicelb --disable local-storage
+```
+#### good to know
+- we disable traefik as we install using helm
+- the service load balancer is disabled because we will use metallb to use the load balancer in our internal network
+- local storage is disabled as we will use longhorn later
 
-#   # curl -sfL https://get.k3s.io | K3S_DATASTORE_ENDPOINT='mysql://k3s:k3spass@tcp(10.27.10.60:3306)/k3sdb' K3S_KUBECONFIG_MODE="644" INSTALL_K3S_EXEC="server --disable traefik --disable servicelb" sh -
-#     # curl -sfL https://get.k3s.io | sh -s - server --tls-san 10.27.10.60 --disable traefik --disable servicelb
+### on the agents
+```bash
+curl -sfL https://get.k3s.io | K3S_URL=https://10.27.10.50:6443 sh -s - agent --token=K101c176295e5e4170740c47488fe8ed9bc5ef7f1688582c06d42766e48f87cbf01::server:44d9d557a708f71a4d7ebcf91370a9a8
+```
 
-# # on master 1
-# export K3S_DATASTORE_ENDPOINT='mysql://k3s:k3spass@tcp(10.27.10.50:3306)/k3sdb'
-# export K3S_KUBECONFIG_MODE="644"
-# curl -sfL https://get.k3s.io | sh -s - server --tls-san 10.27.10.60 --disable traefik --disable servicelb --disable local-storage
-#
-# on the other masters
-# export K3S_DATASTORE_ENDPOINT='mysql://k3s:k3spass@tcp(10.27.10.60:3306)/k3sdb' && export K3S_KUBECONFIG_MODE="644"
-# curl -sfL https://get.k3s.io | sh -s - server --token=K1026372b95441be2b520a4d911115ef6c2bcada744ca9cf5149506208939969fe2::server:3c497c1e1d8e4ab18ef75deca0d16355 --tls-san 10.27.10.60 --disable traefik --disable servicelb --disable local-storage
+### get yaml file
+```bash
+sudo cat /etc/rancher/k3s/k3s.yaml
+```
 
-# try this one
-# curl -sfL https://get.k3s.io | K3S_DATASTORE_ENDPOINT='mysql://k3s:k3spass@tcp(10.27.10.50:3306)/k3sdb' K3S_KUBECONFIG_MODE="644" sh -s - server --tls-san 10.27.10.60 --disable traefik --disable servicelb --disable local-storage
-# cat /var/lib/rancher/k3s/server/node-token
-# curl -sfL https://get.k3s.io | K3S_DATASTORE_ENDPOINT='mysql://k3s:k3spass@tcp(10.27.10.50:3306)/k3sdb' K3S_KUBECONFIG_MODE="644" sh -s - server --token=K101c176295e5e4170740c47488fe8ed9bc5ef7f1688582c06d42766e48f87cbf01::server:44d9d557a708f71a4d7ebcf91370a9a8 --tls-san 10.27.10.50 --disable traefik --disable servicelb --disable local-storage
+### sugested to do it in the following order:
 
-# on the workers
-# curl -sfL https://get.k3s.io | K3S_URL=https://10.27.10.50:6443 sh -s - agent --token=K101c176295e5e4170740c47488fe8ed9bc5ef7f1688582c06d42766e48f87cbf01::server:44d9d557a708f71a4d7ebcf91370a9a8
-
-# get yaml file
-# sudo cat /etc/rancher/k3s/k3s.yaml
-
-# traefik
-# metallb
-# longhorn
-# prometheus
-# loki
-# argo-cd
-# keyclock
+- [ ] traefik
+- [ ] metallb
+- [ ] longhorn
+- [ ] prometheus
+- [ ] loki
+- [ ] argo-cd
+- [ ] keyclock
