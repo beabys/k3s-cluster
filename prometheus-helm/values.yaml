@@ -1015,7 +1015,7 @@ grafana:
   # # To make Grafana persistent (Using Statefulset)
   # #
   persistence:
-    enabled: true
+    enabled: false
     type: pvc
     # storageClassName: "storageClassName"
     storageClassName: "longhorn"
@@ -1031,7 +1031,7 @@ grafana:
 
   sidecar:
     dashboards:
-      enabled: true
+      enabled: false
       label: grafana_dashboard
       labelValue: "1"
       # Allow discovery in all namespaces for dashboards
@@ -1144,7 +1144,7 @@ grafana:
     interval: ""
     scheme: http
     tlsConfig: {}
-    scrapeTimeout: 30s
+    scrapeTimeout: 60s
 
     ## RelabelConfigs to apply to samples before scraping
     ## ref: https://github.com/prometheus-operator/prometheus-operator/blob/main/Documentation/api.md#relabelconfig
@@ -3580,7 +3580,7 @@ prometheus:
 
     ## Maximum size of metrics
     ##
-    retentionSize: ""
+    retentionSize: "5GB"
 
     ## Allow out-of-order/out-of-bounds samples ingested into Prometheus for a specified duration
     ## See https://prometheus.io/docs/prometheus/latest/configuration/configuration/#tsdb
