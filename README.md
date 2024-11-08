@@ -3,15 +3,16 @@ create a new database and a new ha proxy using docker
 
 ### on master one
 ```bash
-curl -sfL https://get.k3s.io | K3S_DATASTORE_ENDPOINT='mysql://user:pass@tcp(ip:port)/db' K3S_KUBECONFIG_MODE="644" sh -s - server --tls-san <ip of the loadbalance (haproxy)> --disable traefik --disable servicelb --disable local-storage
+curl -sfL https://get.k3s.io | K3S_DATASTORE_ENDPOINT='mysql://k3s:k3spass@tcp(10.27.10.50:3306)/k3sdb' K3S_KUBECONFIG_MODE="644" sh -s - server --tls-san 10.27.10.50 --disable traefik --disable servicelb --disable local-storage
 ```
+<!-- curl -sfL https://get.k3s.io | K3S_DATASTORE_ENDPOINT='mysql://k3s:k3spass@tcp(10.27.10.50:3306)/k3sdb' K3S_KUBECONFIG_MODE="644" sh -s - server --token=K10e8c170e82b51abf24c32dd51c0038f51b8904672a87724b71e59c57a020ff71c::server:375454f41509e83a3ee7cec2156013b7 --tls-san 10.27.10.50 --disable traefik --disable servicelb --disable local-storage -->
 ### get the token from master one
 ```bash
-cat /var/lib/rancher/k3s/server/node-token
+sudo cat /var/lib/rancher/k3s/server/node-token
 ```
 ### on the other masters
 ```bash
-curl -sfL https://get.k3s.io | K3S_DATASTORE_ENDPOINT='mysql://user:pass@tcp(ip:port)/db' K3S_KUBECONFIG_MODE="644" sh -s - server --token=<token from master one> --tls-san <ip of the loadbalance (haproxy)> --disable traefik --disable servicelb --disable local-storage
+curl -sfL https://get.k3s.io | K3S_DATASTORE_ENDPOINT='mysql://k3s:k3spass@tcp(10.27.10.50:3306)/k3sdb' K3S_KUBECONFIG_MODE="644" sh -s - server --token=<token from master one> --tls-san 10.27.10.50 --disable traefik --disable servicelb --disable local-storage
 ```
 #### good to know
 - we disable traefik as we install using helm
@@ -20,7 +21,7 @@ curl -sfL https://get.k3s.io | K3S_DATASTORE_ENDPOINT='mysql://user:pass@tcp(ip:
 
 ### on the agents
 ```bash
-curl -sfL https://get.k3s.io | K3S_URL=https://10.27.10.50:6443 sh -s - agent --token=K101c176295e5e4170740c47488fe8ed9bc5ef7f1688582c06d42766e48f87cbf01::server:44d9d557a708f71a4d7ebcf91370a9a8
+curl -sfL https://get.k3s.io | K3S_URL=https://10.27.10.50:6443 sh -s - agent --token=<token from master one>
 ```
 
 ### get yaml file

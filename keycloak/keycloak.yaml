@@ -60,6 +60,18 @@ spec:
               value: "admin"
             - name: KC_PROXY
               value: "edge"
+            - name: KC_DB
+              value: "mariadb"
+            - name: KC_DB_URL_HOST
+              value: "mysql.databases.svc.cluster.local"
+            - name: KC_DB_URL_PORT
+              value: "3306"
+            - name: KC_DB_USERNAME
+              value: "beabys"
+            - name: KC_DB_SCHEMA
+              value: "keycloak"
+            - name: KC_DB_PASSWORD
+              value: "5283151014"
           ports:
             - name: http
               containerPort: 8080
