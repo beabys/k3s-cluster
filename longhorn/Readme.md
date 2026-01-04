@@ -1,4 +1,22 @@
 # installing Long horn
+
+```
+kubectl apply -f https://raw.githubusercontent.com/longhorn/longhorn/v1.10.1/deploy/longhorn.yaml --wait
+```
+
+add the ingress controller
+
+```
+kubectl apply -f longhorn-ingress-controller.yml
+```
+
+add the service monitor
+
+```
+kubectl apply -f serviceMonitor.yaml
+```
+
+## deprecated
 ## install dependencies
 
 ### installing iscsi
