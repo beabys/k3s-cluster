@@ -37,4 +37,3 @@ sudo cat /etc/rancher/k3s/k3s.yaml
 - [ ] prometheus
 - [ ] loki
 - [ ] argo-cd
-- [ ] keyclock
