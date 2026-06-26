@@ -1,9 +1,20 @@
 apiVersion: traefik.io/v1alpha1
+kind: Middleware
+metadata:
+  name: traefik-dashboard-auth
+  namespace: traefik
+spec:
+  basicAuth:
+    secret: traefik-dashboard-auth
+---
+apiVersion: traefik.io/v1alpha1
 kind: IngressRoute
 metadata:
   name: traefik-dashboard
   namespace: traefik
 spec:
+  entryPoints:
+    - web
   routes:
   - match: Host(`traefik.home.lab`) && (PathPrefix(`/api`) || PathPrefix(`/dashboard`))
     kind: Rule
@@ -11,13 +22,4 @@ spec:
     - name: api@internal
       kind: TraefikService
     middlewares:
-      - name: auth
----
-apiVersion: traefik.io/v1alpha1
-kind: Middleware
-metadata:
-  name: auth
-  namespace: traefik
-spec:
-  basicAuth:
-    secret: 5283151014_Be # Kubernetes secret named "secretName"
+      - name: traefik-dashboard-auth

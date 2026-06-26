@@ -7,7 +7,6 @@ helm upgrade --install -f ./values.yaml prometheus prometheus-community/kube-pro
 adding ingress controller
 ```
 kubectl apply -f alert-manager-ingress-controller.yml && \
-kubectl apply -f grafana-ingress-controller.yml && \
 kubectl apply -f prometheus-ingress-controller.yml
 ```
 

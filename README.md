@@ -1,6 +1,68 @@
 # k3s-cluster installations steps
 create a new database and a new ha proxy using docker
 
+## Create node or lxc for db and ha proxy
+### HA proxy
+```
+services:
+  k3slb:
+    image: haproxy
+    ports:
+      - "6443:6443"
+    restart: always
+    volumes:
+      - ./config:/usr/local/etc/haproxy
+    deploy:
+      resources:
+        limits:
+          memory: 2g
+    mem_limit: 2g
+    memswap_limit: 2g
+```
+
+### ha proxy config
+```
+frontend k3s-frontend
+    bind *:6443
+    mode tcp
+    option tcplog
+    default_backend k3s-backend
+
+backend k3s-backend
+    mode tcp
+    option tcp-check
+    balance roundrobin
+    default-server inter 10s downinter 5s
+    server k3sm1 10.27.10.51:6443 check
+    server k3sm2 10.27.10.52:6443 check
+```
+
+### Mariadb or mysql
+```
+services:
+  k3s-db:
+    image: mariadb:latest
+    container_name: k3s-db
+    restart: always
+    environment:
+      MYSQL_DATABASE: k3sdb
+      MYSQL_USER: k3s
+      MYSQL_PASSWORD: k3spass
+      MYSQL_ROOT_PASSWORD: k3spass
+    volumes:
+      - ./data/mysql:/var/lib/mysql
+    ports:
+      - "3306:3306"
+    deploy:
+      resources:
+        limits:
+          memory: 2g
+        reservations:
+          memory: 1g
+    # Tell MariaDB to restrict its buffer pool to ~70% of the limit
+    command: --innodb-buffer-pool-size=1434M
+```
+
 ### on master one
 ```bash
 curl -sfL https://get.k3s.io | K3S_DATASTORE_ENDPOINT='mysql://k3s:k3spass@tcp(10.27.10.50:3306)/k3sdb' K3S_KUBECONFIG_MODE="644" sh -s - server --tls-san 10.27.10.50 --disable traefik --disable servicelb --disable local-storage
@@ -37,4 +99,3 @@ sudo cat /etc/rancher/k3s/k3s.yaml
 - [ ] prometheus
 - [ ] loki
 - [ ] argo-cd
-- [ ] keyclock

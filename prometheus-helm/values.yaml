@@ -2694,7 +2694,7 @@ prometheusOperator:
           - key: kubernetes.io/hostname
             operator: In
             values:
-            - k3sm1
+            - k3smaster1
     # nodeAffinity:
     #   requiredDuringSchedulingIgnoredDuringExecution:
     #     nodeSelectorTerms:
@@ -3652,7 +3652,7 @@ prometheus:
             - key: kubernetes.io/hostname
               operator: In
               values:
-              - k3sm1
+              - k3smaster1
     # nodeAffinity:
     #   requiredDuringSchedulingIgnoredDuringExecution:
     #     nodeSelectorTerms:
