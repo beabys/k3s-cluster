@@ -10,7 +10,7 @@ helm repo update
 
 # Install argo-cd
 ```
-helm upgrade --install argo-cd argo-cd/argo-cd  --values ./argocd/values.yaml -n argo-cd --create-namespace
+helm upgrade --install argo-cd argo-cd/argo-cd  --values ./values.yaml -n argo-cd --create-namespace
 ```
 
 ## using old method
