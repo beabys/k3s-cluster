@@ -1,0 +1,19 @@
+---
+dependencies:
+  - role: docker
+    docker_install: "{{ haproxy_docker_install }}"
+galaxy_info:
+  author: k3s-cluster
+  description: Deploy HAProxy load balancer for K3s
+  license: MIT
+  min_ansible_version: "2.15"
+  platforms:
+    - name: Ubuntu
+      versions:
+        - focal
+        - jammy
+        - noble
+  galaxy_tags:
+    - haproxy
+    - k3s
+    - loadbalancer

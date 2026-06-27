@@ -1,2 +1,8 @@
 .ilnamiqui/
 longhornctl
+
+# Ansible local overrides
+ansible/inventory/homelab/vars/local.yml
+
+# Ansible cache
+.ansible/

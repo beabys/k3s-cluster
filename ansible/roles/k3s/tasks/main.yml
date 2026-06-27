@@ -1,0 +1,61 @@
+---
+- name: Check if K3s installed
+  ansible.builtin.stat:
+    path: "{{ k3s_binary_path }}"
+  register: k3s_installed
+
+- name: Create K3s config directory
+  ansible.builtin.file:
+    path: "{{ k3s_config_dir }}"
+    state: directory
+    mode: "0755"
+  when: k3s_role == "server"
+
+- name: Deploy K3s config.yaml
+  ansible.builtin.template:
+    src: config.yaml.j2
+    dest: "{{ k3s_config_dir }}/config.yaml"
+    mode: "0644"
+  when: k3s_role == "server"
+  notify: restart k3s
+
+- name: Install K3s server
+  ansible.builtin.shell:
+    cmd: |
+      set -o pipefail
+      {% if k3s_version %}INSTALL_K3S_VERSION="{{ k3s_version }}" {% endif %}
+      curl -sfL https://get.k3s.io | \
+        K3S_DATASTORE_ENDPOINT='{{ k3s_datastore_endpoint }}' \
+        K3S_KUBECONFIG_MODE="644" \
+        sh -s - server \
+        --tls-san {{ k3s_tls_san }} \
+        {% if k3s_token %}--token {{ k3s_token }}{% endif %} \
+        {% for item in k3s_disable %}--disable {{ item }} {% endfor %}
+    executable: /bin/bash
+  when:
+    - k3s_role == "server"
+    - not k3s_installed.stat.exists
+  changed_when: true
+
+- name: Install K3s agent
+  ansible.builtin.shell:
+    cmd: |
+      set -o pipefail
+      {% if k3s_version %}INSTALL_K3S_VERSION="{{ k3s_version }}" {% endif %}
+      curl -sfL https://get.k3s.io | \
+        K3S_URL='{{ k3s_server_url }}' \
+        sh -s - agent \
+        --token {{ k3s_token }}
+    executable: /bin/bash
+  when:
+    - k3s_role == "agent"
+    - not k3s_installed.stat.exists
+  changed_when: true
+
+- name: Wait for K3s API ready
+  ansible.builtin.wait_for:
+    port: 6443
+    host: "{{ k3s_tls_san | default('localhost') }}"
+    timeout: 120
+  when: k3s_role == "server"
+  changed_when: false

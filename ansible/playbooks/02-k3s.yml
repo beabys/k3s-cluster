@@ -1,0 +1,65 @@
+---
+# Step 02: K3s cluster installation
+# Depends on: MariaDB from Step 01 running at {{ docker_host_ip }}:3306
+#
+# Usage:
+#   ansible-playbook playbooks/02-k3s.yml
+#
+# Order:
+#   1. Bootstrap first master (k3s-m1) — no token, creates cluster
+#   2. Fetch node-token from first master to control node
+#   3. Join remaining masters with token
+#   4. Join agents with token + server URL
+
+- name: Bootstrap first K3s server
+  hosts: masters[0]
+  vars_files:
+    - ../inventory/homelab/vars/local.yml
+  roles:
+    - role: k3s
+      vars:
+        k3s_role: server
+        k3s_token: ""
+
+- name: Fetch node-token from bootstrap master
+  hosts: masters[0]
+  gather_facts: false
+  vars_files:
+    - ../inventory/homelab/vars/local.yml
+  tasks:
+    - name: Wait for node-token file
+      ansible.builtin.wait_for:
+        path: /var/lib/rancher/k3s/server/node-token
+      changed_when: false
+
+    - name: Read node-token
+      ansible.builtin.slurp:
+        src: /var/lib/rancher/k3s/server/node-token
+      register: token_raw
+
+    - name: Save token to control node
+      ansible.builtin.copy:
+        content: "{{ token_raw.content | b64decode | trim }}"
+        dest: "{{ k3s_token_file }}"
+        mode: '0600'
+      delegate_to: localhost
+
+- name: Join remaining masters
+  hosts: masters:!masters[0]
+  vars_files:
+    - ../inventory/homelab/vars/local.yml
+  roles:
+    - role: k3s
+      vars:
+        k3s_role: server
+        k3s_token: "{{ lookup('file', k3s_token_file) }}"
+
+- name: Join agents
+  hosts: workers
+  vars_files:
+    - ../inventory/homelab/vars/local.yml
+  roles:
+    - role: k3s
+      vars:
+        k3s_role: agent
+        k3s_token: "{{ lookup('file', k3s_token_file) }}"

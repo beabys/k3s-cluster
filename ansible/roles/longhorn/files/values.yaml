@@ -1,0 +1,4 @@
+csi:
+  kubeletRootDir: "/var/lib/kubelet"
+defaultSettings:
+  diskType: "filesystem"

@@ -1,0 +1,10 @@
+---
+# Local overrides — copy to local.yml and fill in your values
+# This file is gitignored — secrets stay local
+
+# SSH user for masters and workers (VM username)
+vm_username: "your-username-here"
+
+# Sudo password (optional — omit and use --ask-become-pass instead)
+# Or set ANSIBLE_BECOME_PASSWORD env var for CI/CD
+# ansible_become_password: "your-sudo-password-here"

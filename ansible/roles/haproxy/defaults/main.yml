@@ -1,0 +1,8 @@
+---
+haproxy_image: "haproxy:latest"
+haproxy_container_name: "k3s-haproxy"
+haproxy_port: 6443
+haproxy_memory_limit: "2g"
+haproxy_config_dir: "/usr/local/etc/haproxy"
+k3s_masters: []
+haproxy_docker_install: true

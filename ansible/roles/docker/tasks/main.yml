@@ -1,0 +1,65 @@
+---
+- name: Skip Docker install if disabled
+  ansible.builtin.debug:
+    msg: "Docker install skipped (docker_install: false)"
+  when: not docker_install | bool
+
+- name: Check if Docker already installed
+  ansible.builtin.command: which docker
+  register: docker_installed
+  changed_when: false
+  failed_when: false
+  when: docker_install | bool
+
+- name: Install Docker dependencies
+  ansible.builtin.apt:
+    name:
+      - apt-transport-https
+      - ca-certificates
+      - curl
+      - gnupg
+      - lsb-release
+      - python3-debian
+    state: present
+    update_cache: true
+  when:
+    - docker_install | bool
+    - docker_installed.rc != 0
+
+- name: Install Docker via convenience script
+  ansible.builtin.shell:
+    cmd: curl -fsSL https://get.docker.com | sh
+    executable: /bin/bash
+  when:
+    - docker_install | bool
+    - docker_installed.rc != 0
+  changed_when: false
+
+- name: Install pip and Python Docker SDK
+  ansible.builtin.apt:
+    name:
+      - python3-pip
+    state: present
+  when: docker_install | bool
+
+- name: Install docker Python package
+  ansible.builtin.pip:
+    name: docker
+    state: present
+    extra_args: --break-system-packages
+  when: docker_install | bool
+
+- name: Start and enable Docker service
+  ansible.builtin.systemd:
+    name: docker
+    state: started
+    enabled: true
+  when: docker_install | bool
+
+- name: Add users to docker group
+  ansible.builtin.user:
+    name: "{{ item }}"
+    groups: docker
+    append: true
+  loop: "{{ docker_users }}"
+  when: docker_install | bool and docker_users | length > 0

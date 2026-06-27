@@ -1,0 +1,6 @@
+---
+- name: Deploy infrastructure layer (HAProxy + MariaDB)
+  hosts: docker_host
+  roles:
+    - role: haproxy
+    - role: mariadb

@@ -1,0 +1,36 @@
+---
+- name: Ensure Python Docker SDK is available
+  ansible.builtin.pip:
+    name: docker
+    state: present
+    extra_args: --break-system-packages
+  when: haproxy_docker_install | bool
+
+- name: Ensure HAProxy config directory exists
+  ansible.builtin.file:
+    path: "{{ haproxy_config_dir }}"
+    state: directory
+    mode: "0755"
+  when: haproxy_docker_install | bool
+
+- name: Template HAProxy configuration
+  ansible.builtin.template:
+    src: haproxy.cfg.j2
+    dest: "{{ haproxy_config_dir }}/haproxy.cfg"
+    mode: "0644"
+  notify: restart haproxy container
+  when: haproxy_docker_install | bool
+
+- name: Deploy HAProxy container
+  community.docker.docker_container:
+    name: "{{ haproxy_container_name }}"
+    image: "{{ haproxy_image }}"
+    state: started
+    restart_policy: always
+    ports:
+      - "{{ haproxy_port }}:{{ haproxy_port }}"
+    volumes:
+      - "{{ haproxy_config_dir }}:/usr/local/etc/haproxy:ro"
+    memory: "{{ haproxy_memory_limit }}"
+    pull: true
+  when: haproxy_docker_install | bool

@@ -1,0 +1,86 @@
+---
+- name: Check prerequisites (helm)
+  ansible.builtin.command: which helm
+  register: helm_check
+  changed_when: false
+  failed_when: false
+
+- name: Fail if helm missing
+  ansible.builtin.fail:
+    msg: "helm binary not found on control node. Install with: brew install helm"
+  when: helm_check.rc != 0
+
+- name: Check prerequisites (kubectl)
+  ansible.builtin.command: which kubectl
+  register: kubectl_check
+  changed_when: false
+  failed_when: false
+
+- name: Fail if kubectl missing
+  ansible.builtin.fail:
+    msg: "kubectl binary not found on control node."
+  when: kubectl_check.rc != 0
+
+- name: Detect OS and architecture for longhornctl
+  ansible.builtin.set_fact:
+    longhornctl_os: "{{ ansible_system | lower }}"
+    longhornctl_arch: >-
+      {{ 'amd64' if ansible_architecture in ['x86_64', 'amd64']
+      else 'arm64' if ansible_architecture in ['aarch64', 'arm64']
+      else ansible_architecture }}
+
+- name: Download longhornctl binary
+  ansible.builtin.get_url:
+    url: "https://github.com/longhorn/cli/releases/download/v{{ longhorn_version }}/longhornctl-{{ longhornctl_os }}-{{ longhornctl_arch }}"
+    dest: "{{ longhornctl_dir }}/longhornctl-v{{ longhorn_version }}"
+    mode: "0755"
+  register: longhornctl_download
+
+- name: Symlink longhornctl to versioned binary
+  ansible.builtin.file:
+    src: "{{ longhornctl_dir }}/longhornctl-v{{ longhorn_version }}"
+    dest: "{{ longhornctl_dir }}/longhornctl"
+    state: link
+    force: true
+
+- name: Ensure longhorn-system namespace exists
+  kubernetes.core.k8s:
+    name: "{{ longhorn_namespace }}"
+    api_version: v1
+    kind: Namespace
+    state: present
+
+- name: Run longhornctl install preflight
+  ansible.builtin.command:
+    cmd: "{{ longhornctl_dir }}/longhornctl --kubeconfig {{ lookup('env', 'HOME') }}/.kube/config install preflight --image longhornio/longhorn-cli:v{{ longhorn_version }}"
+  register: preflight_install
+  changed_when: "'successfully' in preflight_install.stdout"
+  failed_when: preflight_install.rc != 0
+
+- name: Run longhornctl check preflight
+  ansible.builtin.command:
+    cmd: "{{ longhornctl_dir }}/longhornctl --kubeconfig {{ lookup('env', 'HOME') }}/.kube/config check preflight"
+  register: preflight_check
+  changed_when: false
+  failed_when: preflight_check.rc != 0
+
+- name: Add Longhorn Helm repository
+  kubernetes.core.helm_repository:
+    name: longhorn
+    repo_url: "{{ longhorn_repo_url }}"
+  ignore_errors: true
+
+- name: Install/Upgrade Longhorn Helm chart
+  kubernetes.core.helm:
+    name: "{{ longhorn_release_name }}"
+    chart_ref: "{{ longhorn_chart }}"
+    release_namespace: "{{ longhorn_namespace }}"
+    create_namespace: true
+    chart_version: "{{ longhorn_version }}"
+    values_files:
+      - "{{ role_path }}/files/values.yaml"
+
+- name: Apply Longhorn UI Ingress
+  kubernetes.core.k8s:
+    state: present
+    src: ingress.yml

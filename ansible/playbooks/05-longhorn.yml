@@ -1,0 +1,6 @@
+---
+- name: Deploy Longhorn distributed storage
+  hosts: localhost
+  connection: local
+  roles:
+    - longhorn

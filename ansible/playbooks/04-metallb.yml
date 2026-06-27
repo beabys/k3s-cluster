@@ -1,0 +1,6 @@
+---
+- name: Deploy MetalLB load balancer
+  hosts: localhost
+  connection: local
+  roles:
+    - metallb
