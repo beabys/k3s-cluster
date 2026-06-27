@@ -1,101 +1,69 @@
-# k3s-cluster installations steps
-create a new database and a new ha proxy using docker
+# k3s-cluster
 
-## Create node or lxc for db and ha proxy
-### HA proxy
-```
-services:
-  k3slb:
-    image: haproxy
-    ports:
-      - "6443:6443"
-    restart: always
-    volumes:
-      - ./config:/usr/local/etc/haproxy
-    deploy:
-      resources:
-        limits:
-          memory: 2g
-    mem_limit: 2g
-    memswap_limit: 2g
-```
+Ansible-based bootstrapping for a K3s cluster with external HAProxy + MariaDB datastore.
 
-### ha proxy config
-```
-frontend k3s-frontend
-    bind *:6443
-    mode tcp
-    option tcplog
-    default_backend k3s-backend
+## Prerequisites
 
-backend k3s-backend
-    mode tcp
-    option tcp-check
-    balance roundrobin
-    default-server inter 10s downinter 5s
-    server k3sm1 10.27.10.51:6443 check
-    server k3sm2 10.27.10.52:6443 check
-```
+- **Control node:** Your Mac (or CI/CD runner) with:
+  - `ansible-core >= 2.15`
+  - `ansible-galaxy collection install community.docker kubernetes.core`
+  - `helm` + `kubectl` installed, `~/.kube/config` pointing to K3s cluster
+- **LXC container** (10.27.10.50) running Ubuntu, SSH root access
+- **VM nodes** (10.27.10.51-54) running Ubuntu, SSH user with passwordless sudo
 
-### Mariadb or mysql
-```
-services:
-  k3s-db:
-    image: mariadb:latest
-    container_name: k3s-db
-    restart: always
-    environment:
-      MYSQL_DATABASE: k3sdb
-      MYSQL_USER: k3s
-      MYSQL_PASSWORD: k3spass
-      MYSQL_ROOT_PASSWORD: k3spass
-    volumes:
-      - ./data/mysql:/var/lib/mysql
-    ports:
-      - "3306:3306"
-    deploy:
-      resources:
-        limits:
-          memory: 2g
-        reservations:
-          memory: 1g
-    # Tell MariaDB to restrict its buffer pool to ~70% of the limit
-    command: --innodb-buffer-pool-size=1434M
-```
+## Setup
 
-### on master one
 ```bash
-curl -sfL https://get.k3s.io | K3S_DATASTORE_ENDPOINT='mysql://k3s:k3spass@tcp(10.27.10.50:3306)/k3sdb' K3S_KUBECONFIG_MODE="644" sh -s - server --tls-san 10.27.10.50 --disable traefik --disable servicelb --disable local-storage
-```
-<!-- curl -sfL https://get.k3s.io | K3S_DATASTORE_ENDPOINT='mysql://k3s:k3spass@tcp(10.27.10.50:3306)/k3sdb' K3S_KUBECONFIG_MODE="644" sh -s - server --token=K10e8c170e82b51abf24c32dd51c0038f51b8904672a87724b71e59c57a020ff71c::server:375454f41509e83a3ee7cec2156013b7 --tls-san 10.27.10.50 --disable traefik --disable servicelb --disable local-storage -->
-### get the token from master one
-```bash
-sudo cat /var/lib/rancher/k3s/server/node-token
-```
-### on the other masters
-```bash
-curl -sfL https://get.k3s.io | K3S_DATASTORE_ENDPOINT='mysql://k3s:k3spass@tcp(10.27.10.50:3306)/k3sdb' K3S_KUBECONFIG_MODE="644" sh -s - server --token=<token from master one> --tls-san 10.27.10.50 --disable traefik --disable servicelb --disable local-storage
-```
-#### good to know
-- we disable traefik as we install using helm
-- the service load balancer is disabled because we will use metallb to use the load balancer in our internal network
-- local storage is disabled as we will use longhorn later
+cd ansible
 
-### on the agents
-```bash
-curl -sfL https://get.k3s.io | K3S_URL=https://10.27.10.50:6443 sh -s - agent --token=<token from master one>
+# Create local config
+cp inventory/homelab/vars/local.yml.example inventory/homelab/vars/local.yml
+# Edit local.yml: set vm_username and ansible_become_password
 ```
 
-### get yaml file
+## Deployment Order
+
+Run these in sequence. Steps 1-2 use SSH, steps 3-8 run via kubeconfig (localhost).
+
+| Step | Playbook | What | Auth |
+|------|----------|------|------|
+| 1 | `playbooks/01-infra.yml` | HAProxy + MariaDB (Docker on LXC) | root SSH |
+| 2 | `playbooks/02-k3s.yml` | K3s on masters + workers | SSH + sudo |
+| 2.5 | `playbooks/02.5-kubeconfig.yml` | Fetch kubeconfig to control node | SSH + sudo |
+| 3 | `playbooks/03-traefik.yml` | Traefik ingress controller | localhost/kubeconfig |
+| 4 | `playbooks/04-metallb.yml` | MetalLB load balancer | localhost/kubeconfig |
+| 5 | `playbooks/05-longhorn.yml` | Longhorn distributed storage | localhost/kubeconfig |
+| 6 | `playbooks/06-prometheus.yml` | Prometheus monitoring | localhost/kubeconfig |
+| 7 | `playbooks/07-loki.yml` | Loki log aggregation | localhost/kubeconfig |
+| 8 | `playbooks/08-argocd.yml` | ArgoCD GitOps | localhost/kubeconfig |
+
+### Run commands
+
 ```bash
-sudo cat /etc/rancher/k3s/k3s.yaml
+cd ansible
+
+ansible-playbook playbooks/01-infra.yml
+ansible-playbook playbooks/02-k3s.yml              # add --ask-become-pass if no local.yml
+ansible-playbook playbooks/02.5-kubeconfig.yml      # fetch kubeconfig
+ansible-playbook playbooks/03-traefik.yml
+ansible-playbook playbooks/04-metallb.yml
+ansible-playbook playbooks/05-longhorn.yml
+ansible-playbook playbooks/06-prometheus.yml
+ansible-playbook playbooks/07-loki.yml
+ansible-playbook playbooks/08-argocd.yml
 ```
 
-### sugested to do it in the following order:
+## Services
 
-- [ ] traefik
-- [ ] metallb
-- [ ] longhorn
-- [ ] prometheus
-- [ ] loki
-- [ ] argo-cd
+| Service | Domain | Namespace |
+|---------|--------|-----------|
+| Traefik Dashboard | `traefik.home.lab` | `traefik` |
+| Longhorn UI | `longhorn.home.lab` | `longhorn-system` |
+| Prometheus | `prometheus.home.lab` | `monitoring` |
+| Alertmanager | `alertmanager.home.lab` | `monitoring` |
+| Loki | `loki.home.lab` | `grafana-loki` |
+| ArgoCD | `argocd.home.lab` | `argo-cd` |
+
+## Legacy
+
+Original manual installation guides (Helm commands, `kubectl apply`, etc.) are preserved in [`legacy/`](legacy/).

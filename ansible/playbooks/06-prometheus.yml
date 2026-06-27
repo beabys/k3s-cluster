@@ -1,0 +1,6 @@
+---
+- name: Deploy Prometheus monitoring stack
+  hosts: localhost
+  connection: local
+  roles:
+    - prometheus

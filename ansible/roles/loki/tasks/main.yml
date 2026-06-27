@@ -1,0 +1,42 @@
+---
+- name: Check prerequisites (helm)
+  ansible.builtin.command: which helm
+  register: helm_check
+  changed_when: false
+  failed_when: false
+
+- name: Fail if helm missing
+  ansible.builtin.fail:
+    msg: "helm binary not found on control node. Install with: brew install helm"
+  when: helm_check.rc != 0
+
+- name: Check prerequisites (kubectl)
+  ansible.builtin.command: which kubectl
+  register: kubectl_check
+  changed_when: false
+  failed_when: false
+
+- name: Fail if kubectl missing
+  ansible.builtin.fail:
+    msg: "kubectl binary not found on control node."
+  when: kubectl_check.rc != 0
+
+- name: Add Grafana Helm repository
+  kubernetes.core.helm_repository:
+    name: grafana
+    repo_url: "{{ loki_repo_url }}"
+  ignore_errors: true
+
+- name: Install/Upgrade Loki stack
+  kubernetes.core.helm:
+    name: "{{ loki_release_name }}"
+    chart_ref: "{{ loki_chart }}"
+    release_namespace: "{{ loki_namespace }}"
+    create_namespace: true
+    values_files:
+      - "{{ role_path }}/files/values.yaml"
+
+- name: Apply Loki Ingress
+  kubernetes.core.k8s:
+    state: present
+    src: loki-ingress.yml

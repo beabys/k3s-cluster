@@ -1,0 +1,6 @@
+---
+skip_list:
+  - experimental  # skip experimental rules
+  - role-name     # skip role name format check (k3s-cluster is not a valid role prefix)
+  - yaml[line-length]
+  - var-naming[no-role-prefix]  # k3s_masters is global var shared between roles

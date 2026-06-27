@@ -1,0 +1,80 @@
+---
+- name: Check prerequisites (helm)
+  ansible.builtin.command: which helm
+  register: helm_check
+  changed_when: false
+  failed_when: false
+
+- name: Fail if helm missing
+  ansible.builtin.fail:
+    msg: "helm binary not found on control node. Install with: brew install helm"
+  when: helm_check.rc != 0
+
+- name: Check prerequisites (kubectl)
+  ansible.builtin.command: which kubectl
+  register: kubectl_check
+  changed_when: false
+  failed_when: false
+
+- name: Fail if kubectl missing
+  ansible.builtin.fail:
+    msg: "kubectl binary not found on control node. K3s includes kubectl — symlink: ln -s /usr/local/bin/k3s /usr/local/bin/kubectl"
+  when: kubectl_check.rc != 0
+
+- name: Check if htpasswd binary exists
+  ansible.builtin.command: which htpasswd
+  register: htpasswd_check
+  changed_when: false
+  failed_when: false
+
+- name: Generate htpasswd entry via binary
+  ansible.builtin.command:
+    cmd: "htpasswd -nb {{ traefik_dashboard_user }} {{ traefik_dashboard_password }}"
+  register: htpasswd_result
+  changed_when: false
+  when: htpasswd_check.rc == 0
+
+- name: Generate htpasswd entry via openssl (fallback)
+  ansible.builtin.command:
+    cmd: "openssl passwd -apr1 {{ traefik_dashboard_password }}"
+  register: htpasswd_openssl
+  changed_when: false
+  when: htpasswd_check.rc != 0
+
+- name: Set htpasswd result from openssl
+  ansible.builtin.set_fact:
+    htpasswd_result:
+      stdout: "{{ traefik_dashboard_user }}:{{ htpasswd_openssl.stdout }}"
+  when: htpasswd_check.rc != 0 and htpasswd_openssl is defined
+
+- name: Add Traefik Helm repository
+  kubernetes.core.helm_repository:
+    name: traefik
+    repo_url: "{{ traefik_repo_url }}"
+  ignore_errors: true
+
+- name: Install/Upgrade Traefik Helm chart
+  kubernetes.core.helm:
+    name: "{{ traefik_release_name }}"
+    chart_ref: "{{ traefik_chart }}"
+    release_namespace: "{{ traefik_namespace }}"
+    create_namespace: true
+    values_files:
+      - "{{ role_path }}/files/values.yaml"
+
+- name: Create dashboard auth secret
+  kubernetes.core.k8s:
+    state: present
+    definition:
+      apiVersion: v1
+      kind: Secret
+      metadata:
+        name: traefik-dashboard-auth
+        namespace: "{{ traefik_namespace }}"
+      stringData:
+        users: "{{ htpasswd_result.stdout | trim }}"
+
+- name: Apply dashboard Middleware and IngressRoute CRDs
+  kubernetes.core.k8s:
+    state: present
+    src: dashboard-crd.yml

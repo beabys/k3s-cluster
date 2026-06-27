@@ -1,0 +1,11 @@
+---
+k3s_role: server
+k3s_token: ""
+k3s_version: ""
+k3s_datastore_endpoint: ""
+k3s_tls_san: ""
+k3s_disable: []
+k3s_flannel_backend: host-gw
+k3s_config_dir: /etc/rancher/k3s
+k3s_binary_path: /usr/local/bin/k3s
+k3s_server_url: ""

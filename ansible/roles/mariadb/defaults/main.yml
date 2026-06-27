@@ -1,0 +1,13 @@
+---
+mariadb_image: "mariadb:latest"
+mariadb_container_name: "k3s-db"
+mariadb_port: 3306
+mariadb_database: "k3sdb"
+mariadb_user: "k3s"
+mariadb_password: "k3spass"
+mariadb_root_password: "k3spass"
+mariadb_memory_limit: "2g"
+mariadb_memory_reservation: "1g"
+mariadb_buffer_pool_size: "1434M"
+mariadb_data_dir: "/var/lib/mysql"
+mariadb_docker_install: true

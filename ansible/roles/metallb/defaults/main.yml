@@ -1,0 +1,6 @@
+---
+metallb_namespace: metallb-system
+metallb_chart: metallb/metallb
+metallb_repo_url: https://metallb.github.io/metallb
+metallb_release_name: metallb
+metallb_ip_pool_range: 10.27.10.60-10.27.10.89

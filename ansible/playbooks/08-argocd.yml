@@ -1,0 +1,6 @@
+---
+- name: Deploy ArgoCD GitOps
+  hosts: localhost
+  connection: local
+  roles:
+    - argocd

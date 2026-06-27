@@ -1,0 +1,6 @@
+---
+loki_namespace: grafana-loki
+loki_chart: grafana/loki-stack
+loki_repo_url: https://grafana.github.io/helm-charts
+loki_release_name: loki
+loki_domain: loki.home.lab

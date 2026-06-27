@@ -1,0 +1,14 @@
+---
+- name: restart haproxy container
+  community.docker.docker_container:
+    name: "{{ haproxy_container_name }}"
+    image: "{{ haproxy_image }}"
+    state: started
+    restart_policy: always
+    ports:
+      - "{{ haproxy_port }}:{{ haproxy_port }}"
+    volumes:
+      - "{{ haproxy_config_dir }}:/usr/local/etc/haproxy:ro"
+    memory: "{{ haproxy_memory_limit }}"
+    pull: false
+  when: haproxy_docker_install | bool

@@ -1,0 +1,6 @@
+ingressRoute:
+  dashboard:
+    enabled: true
+    matchRule: Host(`traefik.home.lab`)
+    middlewares:
+      - name: traefik-dashboard-auth

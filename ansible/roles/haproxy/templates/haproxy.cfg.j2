@@ -1,0 +1,14 @@
+frontend k3s-frontend
+    bind *:{{ haproxy_port }}
+    mode tcp
+    option tcplog
+    default_backend k3s-backend
+
+backend k3s-backend
+    mode tcp
+    option tcp-check
+    balance roundrobin
+    default-server inter 10s downinter 5s
+{% for master in k3s_masters %}
+    server {{ master.name }} {{ master.ip }}:{{ master.port }} check
+{% endfor %}

@@ -1,0 +1,6 @@
+---
+- name: Deploy Traefik Ingress controller
+  hosts: localhost
+  connection: local
+  roles:
+    - traefik

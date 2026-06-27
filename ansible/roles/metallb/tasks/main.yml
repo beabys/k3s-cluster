@@ -1,0 +1,67 @@
+---
+- name: Check prerequisites (helm)
+  ansible.builtin.command: which helm
+  register: helm_check
+  changed_when: false
+  failed_when: false
+
+- name: Fail if helm missing
+  ansible.builtin.fail:
+    msg: "helm binary not found on control node. Install with: brew install helm"
+  when: helm_check.rc != 0
+
+- name: Check prerequisites (kubectl)
+  ansible.builtin.command: which kubectl
+  register: kubectl_check
+  changed_when: false
+  failed_when: false
+
+- name: Fail if kubectl missing
+  ansible.builtin.fail:
+    msg: "kubectl binary not found on control node."
+  when: kubectl_check.rc != 0
+
+- name: Add MetalLB Helm repository
+  kubernetes.core.helm_repository:
+    name: metallb
+    repo_url: "{{ metallb_repo_url }}"
+  ignore_errors: true
+
+- name: Install/Upgrade MetalLB Helm chart
+  kubernetes.core.helm:
+    name: "{{ metallb_release_name }}"
+    chart_ref: "{{ metallb_chart }}"
+    release_namespace: "{{ metallb_namespace }}"
+    create_namespace: true
+
+- name: Wait for MetalLB webhook to be ready
+  ansible.builtin.shell:
+    cmd: >
+      kubectl wait --namespace {{ metallb_namespace }}
+      --for=condition=ready pod
+      --selector=app.kubernetes.io/component=controller
+      --timeout=90s
+  changed_when: false
+  register: wait_result
+  retries: 3
+  delay: 5
+  until: wait_result.rc == 0
+
+- name: Apply IP address pool and L2Advertisement
+  kubernetes.core.k8s:
+    state: present
+    template: service-pool.yaml.j2
+
+- name: Restart Traefik to pick up MetalLB IP
+  ansible.builtin.shell:
+    cmd: kubectl rollout restart deployment traefik -n traefik
+  changed_when: true
+  register: rollout_result
+  failed_when: rollout_result.rc != 0
+
+- name: Wait for Traefik rollout to complete
+  ansible.builtin.shell:
+    cmd: kubectl rollout status deployment traefik -n traefik --timeout=120s
+  changed_when: false
+  register: status_result
+  failed_when: status_result.rc != 0

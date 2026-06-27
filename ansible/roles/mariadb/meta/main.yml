@@ -1,0 +1,19 @@
+---
+dependencies:
+  - role: docker
+    docker_install: "{{ mariadb_docker_install }}"
+galaxy_info:
+  author: k3s-cluster
+  description: Deploy MariaDB database for K3s datastore
+  license: MIT
+  min_ansible_version: "2.15"
+  platforms:
+    - name: Ubuntu
+      versions:
+        - focal
+        - jammy
+        - noble
+  galaxy_tags:
+    - mariadb
+    - k3s
+    - database

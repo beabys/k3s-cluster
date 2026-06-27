@@ -3,4 +3,4 @@ ingressRoute:
     enabled: true
     matchRule: Host(`traefik.home.lab`)
     middlewares:
-      - traefik-dashboard-auth
+      - name: traefik-dashboard-auth
