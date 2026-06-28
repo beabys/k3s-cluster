@@ -8,3 +8,8 @@ vm_username: "your-username-here"
 # Sudo password (optional — omit and use --ask-become-pass instead)
 # Or set ANSIBLE_BECOME_PASSWORD env var for CI/CD
 # ansible_become_password: "your-sudo-password-here"
+
+# Infrastructure overrides — uncomment to change from defaults
+# docker_host_ip: 10.27.10.50       # HAProxy/MariaDB LXC IP
+# domain: home.lab                   # DNS domain for *.home.lab services
+# metallb_ip_pool_range: 10.27.10.60-10.27.10.89  # MetalLB IP pool

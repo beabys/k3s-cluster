@@ -9,6 +9,6 @@ backend k3s-backend
     option tcp-check
     balance roundrobin
     default-server inter 10s downinter 5s
-{% for master in k3s_masters %}
-    server {{ master.name }} {{ master.ip }}:{{ master.port }} check
+{% for host in groups['masters'] %}
+    server {{ hostvars[host]['inventory_hostname'] }} {{ hostvars[host]['ansible_host'] }}:{{ haproxy_port }} check
 {% endfor %}

@@ -3,7 +3,7 @@
 domain: home.lab
 
 # Docker host
-docker_host_ip: 10.27.10.50
+# docker_host_ip is defined in host_vars/docker-host.yml
 
 # HAProxy
 haproxy_image: haproxy:latest
@@ -25,26 +25,17 @@ mariadb_memory_reservation: 1g
 mariadb_buffer_pool_size: 1434M
 mariadb_data_dir: /var/lib/mysql
 
-# K3s masters (used by HAProxy backend config)
-k3s_masters:
-  - name: k3s-m1
-    ip: 10.27.10.51
-    port: 6443
-  - name: k3s-m2
-    ip: 10.27.10.52
-    port: 6443
-
 # K3s
 k3s_version: ""
-k3s_datastore_endpoint: "mysql://k3s:k3spass@tcp({{ docker_host_ip }}:3306)/k3sdb"
-k3s_tls_san: "{{ docker_host_ip }}"
+k3s_datastore_endpoint: "mysql://k3s:k3spass@tcp({{ hostvars['docker-host']['docker_host_ip'] }}:3306)/k3sdb"
+k3s_tls_san: "{{ hostvars['docker-host']['docker_host_ip'] }}"
 k3s_disable:
   - traefik
   - servicelb
   - local-storage
 k3s_flannel_backend: host-gw
 k3s_token_file: /tmp/.k3s-token
-k3s_server_url: "https://{{ docker_host_ip }}:6443"
+k3s_server_url: "https://{{ hostvars['docker-host']['docker_host_ip'] }}:6443"
 
 # Traefik
 traefik_namespace: traefik
