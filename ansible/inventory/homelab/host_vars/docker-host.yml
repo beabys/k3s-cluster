@@ -2,3 +2,6 @@
 ansible_user: root
 docker_users:
   - root
+
+# Service IP for this host (used by multiple roles)
+docker_host_ip: 10.27.10.50

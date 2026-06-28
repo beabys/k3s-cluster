@@ -4,7 +4,7 @@ Ansible-based bootstrapping for a K3s cluster with external HAProxy + MariaDB da
 
 ## Prerequisites
 
-- **Control node:** Your Mac (or CI/CD runner) with:
+- **Control node:** Your Computer (or CI/CD runner) with:
   - `ansible-core >= 2.15`
   - `ansible-galaxy collection install community.docker kubernetes.core`
   - `helm` + `kubectl` installed, `~/.kube/config` pointing to K3s cluster
