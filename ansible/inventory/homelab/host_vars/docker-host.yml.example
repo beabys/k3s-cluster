@@ -1,0 +1,7 @@
+---
+ansible_user: root # change as needed for your environment
+docker_users:
+  - root # change as needed for your environment
+
+# Service IP for this host (used by multiple roles)
+docker_host_ip: 
