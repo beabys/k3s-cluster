@@ -4,6 +4,7 @@ longhornctl
 # Ansible local overrides
 ansible/inventory/homelab/vars/local.yml
 ansible/inventory/homelab/hosts.ini
+ansible/inventory/homelab/host_vars/docker-host.yml
 
 # Ansible cache
 .ansible/
