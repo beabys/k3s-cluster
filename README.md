@@ -119,18 +119,25 @@ Create local configuration first:
 ```bash
 cp ansible/inventory/homelab/vars/local.yml.example ansible/inventory/homelab/vars/local.yml
 cp ansible/inventory/homelab/hosts.ini.example ansible/inventory/homelab/hosts.ini  
+cp ansible/inventory/homelab/host_vars/docker-host.yml.example ansible/inventory/homelab/host_vars/docker-host.yml
 ```
 
-Then edit `local.yml` and set values such as:
+Edit `local.yml` and set values such as:
 
 - `vm_username`
 - `ansible_become_password`
 
-Finally edit `hosts.ini` and set values such as:
+Then edit `hosts.ini` and set values such as:
 
 - `ansible_host`
 
 for `docker_host`, `masters` and `workers`
+
+Finally edit `docker-host.yml` and set values as:
+
+- `ansible_user`
+- `docker_users`
+- `docker_host_ip`
 
 ## Run the deployment
 
