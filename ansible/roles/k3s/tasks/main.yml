@@ -9,7 +9,16 @@
     path: "{{ k3s_config_dir }}"
     state: directory
     mode: "0755"
-  when: k3s_role == "server"
+
+- name: Deploy custom resolv.conf (exclude home.lab search domain)
+  ansible.builtin.copy:
+    content: |
+      nameserver 10.43.0.10
+      search default.svc.cluster.local svc.cluster.local cluster.local
+      options ndots:5
+    dest: "{{ k3s_config_dir }}/resolv.conf"
+    mode: "0644"
+  notify: restart k3s
 
 - name: Deploy K3s config.yaml
   ansible.builtin.template:
