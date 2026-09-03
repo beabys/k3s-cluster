@@ -13,9 +13,10 @@ applicationSet:
   replicas: 2
 
 global:
-  domain: argocd.home.lab
+  domain: argocd.home.beabys.com
 
 configs:
+  url: https://argocd.home.beabys.com
   params:
     server.insecure: true
 
@@ -28,4 +29,4 @@ server:
       traefik.ingress.kubernetes.io/router.entrypoints: web
       traefik.ingress.kubernetes.io/router.tls: "false"
     hosts:
-      -  argocd.home.lab
+      -  argocd.home.beabys.com

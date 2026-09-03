@@ -3,4 +3,4 @@ argocd_namespace: argo-cd
 argocd_chart: argo-cd/argo-cd
 argocd_repo_url: https://argoproj.github.io/argo-helm
 argocd_release_name: argo-cd
-argocd_domain: argocd.home.lab
+argocd_domain: argocd.home.beabys.com

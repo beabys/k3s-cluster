@@ -10,5 +10,5 @@ vm_username: "your-username-here"
 # ansible_become_password: "your-sudo-password-here"
 
 # Infrastructure overrides — uncomment to change from defaults
-# domain: home.lab                   # DNS domain for *.home.lab services
+# domain: home.beabys.com            # DNS domain for *.home.beabys.com services
 # metallb_ip_pool_range: 10.27.10.60-10.27.10.89  # MetalLB IP pool

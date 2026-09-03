@@ -6,7 +6,7 @@ metadata:
 spec:
   ingressClassName: traefik
   rules:
-  - host: alertmanager.home.lab
+  - host: alertmanager.home.beabys.com
     http:
       paths:
       - path: /

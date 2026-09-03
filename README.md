@@ -163,12 +163,12 @@ The current cluster exposes the following service endpoints:
 
 | Service | Domain | Namespace |
 |---|---|---|
-| Traefik Dashboard | `traefik.home.lab` | `traefik` |
-| Longhorn UI | `longhorn.home.lab` | `longhorn-system` |
-| Prometheus | `prometheus.home.lab` | `monitoring` |
-| Alertmanager | `alertmanager.home.lab` | `monitoring` |
-| Loki | `loki.home.lab` | `grafana-loki` |
-| ArgoCD | `argocd.home.lab` | `argo-cd` |
+| Traefik Dashboard | `traefik.home.beabys.com` | `traefik` |
+| Longhorn UI | `longhorn.home.beabys.com` | `longhorn-system` |
+| Prometheus | `prometheus.home.beabys.com` | `monitoring` |
+| Alertmanager | `alertmanager.home.beabys.com` | `monitoring` |
+| Loki | `loki.home.beabys.com` | `grafana-loki` |
+| ArgoCD | `argocd.home.beabys.com` | `argo-cd` |
 
 ## Operational focus
 
