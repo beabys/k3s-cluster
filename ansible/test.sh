@@ -53,6 +53,9 @@ check "Syntax check (07-loki.yml)" \
 check "Syntax check (08-argocd.yml)" \
     "ansible-playbook --syntax-check playbooks/08-argocd.yml"
 
+check "Syntax check (09-external-db.yml)" \
+    "ansible-playbook --syntax-check playbooks/09-external-db.yml"
+
 check "Ansible-lint" \
     "ansible-lint --version && ansible-lint ."
 

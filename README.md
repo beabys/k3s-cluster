@@ -111,6 +111,7 @@ The cluster is installed in a staged sequence. Steps 1-2 run over SSH, and the r
 | 6 | `playbooks/06-prometheus.yml` | Install Prometheus monitoring | Localhost / kubeconfig |
 | 7 | `playbooks/07-loki.yml` | Install Loki logging | Localhost / kubeconfig |
 | 8 | `playbooks/08-argocd.yml` | Install ArgoCD | Localhost / kubeconfig |
+| 9 | `playbooks/09-external-db.yml` | External database Services/EndpointSlices (configurable) | Localhost / kubeconfig |
 
 ## Setup
 
