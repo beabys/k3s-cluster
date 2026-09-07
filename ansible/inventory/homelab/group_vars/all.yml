@@ -81,3 +81,13 @@ argocd_chart: argo-cd/argo-cd
 argocd_repo_url: https://argoproj.github.io/argo-helm
 argocd_release_name: argo-cd
 argocd_domain: "argocd.{{ domain }}"
+
+# Fission
+fission_namespace: fission
+fission_chart: fission-charts/fission-all
+fission_repo_url: https://fission.github.io/fission-charts
+fission_release_name: fission
+fission_version: "1.27.0"
+fission_domain: "functions.{{ domain }}"
+fission_crd_kustomize_url: "https://github.com/fission/fission/crds/v1?ref=v{{ fission_version }}"
+fission_deploy_examples: true

@@ -56,6 +56,9 @@ check "Syntax check (08-argocd.yml)" \
 check "Syntax check (09-external-db.yml)" \
     "ansible-playbook --syntax-check playbooks/09-external-db.yml"
 
+check "Syntax check (10-fission.yml)" \
+    "ansible-playbook --syntax-check playbooks/10-fission.yml"
+
 check "Ansible-lint" \
     "ansible-lint --version && ansible-lint ."
 

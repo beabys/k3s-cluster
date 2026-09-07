@@ -1,0 +1,17 @@
+---
+dependencies: []
+galaxy_info:
+  author: k3s-cluster
+  description: Deploy Fission FaaS platform (fission-all Helm chart)
+  license: MIT
+  min_ansible_version: "2.15"
+  platforms:
+    - name: Ubuntu
+      versions:
+        - focal
+        - jammy
+        - noble
+  galaxy_tags:
+    - fission
+    - serverless
+    - kubernetes
