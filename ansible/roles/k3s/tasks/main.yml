@@ -10,10 +10,12 @@
     state: directory
     mode: "0755"
 
-- name: Deploy custom resolv.conf (exclude home.lab search domain)
+- name: Deploy custom resolv.conf (exclude router search domain)
   ansible.builtin.copy:
+    # nameserver must NOT be kube-dns ClusterIP (CoreDNS itself): CoreDNS forwards
+    # to this file, self-referencing CoreDNS triggers plugin/loop self-forward crash.
     content: |
-      nameserver 10.43.0.10
+      nameserver {{ k3s_dns_upstream }}
       search default.svc.cluster.local svc.cluster.local cluster.local
       options ndots:5
     dest: "{{ k3s_config_dir }}/resolv.conf"
@@ -64,7 +66,7 @@
 - name: Wait for K3s API ready
   ansible.builtin.wait_for:
     port: 6443
-    host: "{{ k3s_tls_san | default('localhost') }}"
+    host: "{{ k3s_tls_san if k3s_tls_san else 'localhost' }}"
     timeout: 120
   when: k3s_role == "server"
   changed_when: false

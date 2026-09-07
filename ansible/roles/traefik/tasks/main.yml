@@ -74,7 +74,7 @@
       stringData:
         users: "{{ htpasswd_result.stdout | trim }}"
 
-- name: Apply dashboard Middleware and IngressRoute CRDs
+- name: Apply dashboard auth Middleware
   kubernetes.core.k8s:
     state: present
     src: dashboard-crd.yml

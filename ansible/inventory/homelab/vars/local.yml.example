@@ -10,5 +10,19 @@ vm_username: "your-username-here"
 # ansible_become_password: "your-sudo-password-here"
 
 # Infrastructure overrides — uncomment to change from defaults
-# domain: home.lab                   # DNS domain for *.home.lab services
+# domain: home.beabys.com            # DNS domain for *.home.beabys.com services
 # metallb_ip_pool_range: 10.27.10.60-10.27.10.89  # MetalLB IP pool
+
+# External databases to expose inside the cluster (playbook 09-external-db.yml)
+# Keys per entry:
+#   namespace:               Kubernetes namespace for the Service/EndpointSlice
+#   database_name:           name of the Service/EndpointSlice (must be valid DNS-1123)
+#   database_internal_port:  cluster port (Service .spec.ports[].port)
+#   database_host_port:      port on the external database host
+#   database_host:           IP or hostname of the external database
+# external_databases:
+#   - namespace: databases
+#     database_name: mysql
+#     database_internal_port: 3306
+#     database_host_port: 3306
+#     database_host: 10.27.10.37

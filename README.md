@@ -111,6 +111,8 @@ The cluster is installed in a staged sequence. Steps 1-2 run over SSH, and the r
 | 6 | `playbooks/06-prometheus.yml` | Install Prometheus monitoring | Localhost / kubeconfig |
 | 7 | `playbooks/07-loki.yml` | Install Loki logging | Localhost / kubeconfig |
 | 8 | `playbooks/08-argocd.yml` | Install ArgoCD | Localhost / kubeconfig |
+| 9 | `playbooks/09-external-db.yml` | External database Services/EndpointSlices (configurable) | Localhost / kubeconfig |
+| 10 | `playbooks/10-fission.yml` | Install Fission FaaS | Localhost / kubeconfig |
 
 ## Setup
 
@@ -153,6 +155,7 @@ ansible-playbook playbooks/05-longhorn.yml
 ansible-playbook playbooks/06-prometheus.yml
 ansible-playbook playbooks/07-loki.yml
 ansible-playbook playbooks/08-argocd.yml
+ansible-playbook playbooks/10-fission.yml
 ```
 
 If you are not using values from `local.yml`, add `--ask-become-pass` where needed.
@@ -163,12 +166,15 @@ The current cluster exposes the following service endpoints:
 
 | Service | Domain | Namespace |
 |---|---|---|
-| Traefik Dashboard | `traefik.home.lab` | `traefik` |
-| Longhorn UI | `longhorn.home.lab` | `longhorn-system` |
-| Prometheus | `prometheus.home.lab` | `monitoring` |
-| Alertmanager | `alertmanager.home.lab` | `monitoring` |
-| Loki | `loki.home.lab` | `grafana-loki` |
-| ArgoCD | `argocd.home.lab` | `argo-cd` |
+| Traefik Dashboard | `traefik.home.beabys.com` | `traefik` |
+| Longhorn UI | `longhorn.home.beabys.com` | `longhorn-system` |
+| Prometheus | `prometheus.home.beabys.com` | `monitoring` |
+| Alertmanager | `alertmanager.home.beabys.com` | `monitoring` |
+| Loki | `loki.home.beabys.com` | `grafana-loki` |
+| ArgoCD | `argocd.home.beabys.com` | `argo-cd` |
+| Fission Functions | `functions.home.beabys.com` | `fission` |
+
+Sample Fission function is reachable at `http://functions.home.beabys.com/hello` via an HTTPTrigger (Fission v1.27 routes functions only through HTTPTriggers; the `/fission-function/*` URL is internal-only). DNS and the external reverse proxy for `functions.home.beabys.com` must point to the cluster Traefik entrypoint — that mapping lives outside this repo (homelab router).
 
 ## Operational focus
 

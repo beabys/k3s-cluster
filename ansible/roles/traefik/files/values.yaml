@@ -1,6 +1,8 @@
 ingressRoute:
   dashboard:
     enabled: true
-    matchRule: Host(`traefik.home.lab`)
+    entryPoints:
+      - web
+    matchRule: Host(`traefik.home.beabys.com`) && (PathPrefix(`/api`) || PathPrefix(`/dashboard`))
     middlewares:
       - name: traefik-dashboard-auth

@@ -1,0 +1,6 @@
+---
+- name: Deploy Fission FaaS platform
+  hosts: localhost
+  connection: local
+  roles:
+    - fission

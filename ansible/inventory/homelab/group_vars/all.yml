@@ -1,6 +1,6 @@
 ---
 # Domain
-domain: home.lab
+domain: home.beabys.com
 
 # Docker host
 # docker_host_ip is defined in host_vars/docker-host.yml
@@ -36,6 +36,7 @@ k3s_disable:
 k3s_flannel_backend: host-gw
 k3s_token_file: /tmp/.k3s-token
 k3s_server_url: "https://{{ hostvars['docker-host']['docker_host_ip'] }}:6443"
+k3s_dns_upstream: 10.27.10.1
 
 # Traefik
 traefik_namespace: traefik
@@ -80,3 +81,13 @@ argocd_chart: argo-cd/argo-cd
 argocd_repo_url: https://argoproj.github.io/argo-helm
 argocd_release_name: argo-cd
 argocd_domain: "argocd.{{ domain }}"
+
+# Fission
+fission_namespace: fission
+fission_chart: fission-charts/fission-all
+fission_repo_url: https://fission.github.io/fission-charts
+fission_release_name: fission
+fission_version: "1.27.0"
+fission_domain: "functions.{{ domain }}"
+fission_crd_kustomize_url: "https://github.com/fission/fission/crds/v1?ref=v{{ fission_version }}"
+fission_deploy_examples: true

@@ -1,0 +1,69 @@
+---
+- name: Check prerequisites (helm)
+  ansible.builtin.command: which helm
+  register: helm_check
+  changed_when: false
+  failed_when: false
+
+- name: Fail if helm missing
+  ansible.builtin.fail:
+    msg: "helm binary not found on control node. Install with: brew install helm"
+  when: helm_check.rc != 0
+
+- name: Check prerequisites (kubectl)
+  ansible.builtin.command: which kubectl
+  register: kubectl_check
+  changed_when: false
+  failed_when: false
+
+- name: Fail if kubectl missing
+  ansible.builtin.fail:
+    msg: "kubectl binary not found on control node."
+  when: kubectl_check.rc != 0
+
+- name: Apply Fission CRDs from upstream kustomize
+  ansible.builtin.command: kubectl apply --server-side -k "{{ fission_crd_kustomize_url }}"
+  become: false
+  register: fission_crd_apply
+  changed_when: false
+  # fission-all chart does not bundle CRDs; upstream publishes them via
+  # kustomize at crds/v1?ref=v<version>. Server-side apply is required: three
+  # v1.27.0 CRDs exceed the 262144-byte last-applied-configuration annotation
+  # limit on K8s 1.36, which client-side apply would write. Field manager
+  # "kubectl" matches the default client-side manager, so already-applied CRDs
+  # are adopted without ownership conflict. kubectl apply is idempotent.
+
+- name: Add Fission Helm repository
+  kubernetes.core.helm_repository:
+    name: fission-charts
+    repo_url: "{{ fission_repo_url }}"
+  ignore_errors: true
+
+- name: Install/Upgrade Fission FaaS
+  kubernetes.core.helm:
+    name: "{{ fission_release_name }}"
+    chart_ref: "{{ fission_chart }}"
+    chart_version: "{{ fission_version }}"
+    release_namespace: "{{ fission_namespace }}"
+    create_namespace: true
+    wait: true
+    wait_timeout: 600s
+    values_files:
+      - "{{ role_path }}/files/values.yaml"
+
+- name: Apply Fission Router Ingress
+  kubernetes.core.k8s:
+    state: present
+    src: router-ingress.yml
+
+- name: Apply example Environment (python-warm)
+  kubernetes.core.k8s:
+    state: present
+    src: env-python-warm.yml
+  when: fission_deploy_examples
+
+- name: Apply example Function and HTTPTrigger (hello-world)
+  kubernetes.core.k8s:
+    state: present
+    src: hello-world.yml
+  when: fission_deploy_examples

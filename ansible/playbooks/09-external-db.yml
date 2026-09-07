@@ -1,0 +1,17 @@
+---
+- name: Create Services/EndpointSlices for external databases
+  hosts: localhost
+  connection: local
+  gather_facts: false
+  pre_tasks:
+    - name: Check for local override config file
+      ansible.builtin.stat:
+        path: "../inventory/homelab/vars/local.yml"
+      register: db_config
+
+    - name: Load local override config
+      ansible.builtin.include_vars:
+        file: "../inventory/homelab/vars/local.yml"
+      when: db_config.stat.exists
+  roles:
+    - external-db

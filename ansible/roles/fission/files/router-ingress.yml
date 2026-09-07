@@ -1,18 +1,18 @@
 apiVersion: networking.k8s.io/v1
 kind: Ingress
 metadata:
-  name: alertmanager-server
-  namespace: monitoring
+  name: fission-router-ingress
+  namespace: fission
 spec:
   ingressClassName: traefik
   rules:
-  - host: alertmanager.home.beabys.com
+  - host: functions.home.beabys.com
     http:
       paths:
       - path: /
         pathType: Prefix
         backend:
           service:
-            name: alertmanager-operated
+            name: router
             port:
-              number: 9093
+              number: 80

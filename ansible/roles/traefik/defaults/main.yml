@@ -5,4 +5,4 @@ traefik_repo_url: https://traefik.github.io/charts
 traefik_release_name: traefik
 traefik_dashboard_user: admin
 traefik_dashboard_password: admin
-traefik_dashboard_domain: "traefik.home.lab"
+traefik_dashboard_domain: "traefik.home.beabys.com"

@@ -1,0 +1,51 @@
+---
+- name: Create external database namespaces
+  kubernetes.core.k8s:
+    state: present
+    definition:
+      apiVersion: v1
+      kind: Namespace
+      metadata:
+        name: "{{ item }}"
+  loop: "{{ external_databases | map(attribute='namespace') | unique | list }}"
+  when: external_databases | length > 0
+
+- name: Create external database Services
+  kubernetes.core.k8s:
+    state: present
+    definition:
+      apiVersion: v1
+      kind: Service
+      metadata:
+        name: "{{ item.database_name }}"
+        namespace: "{{ item.namespace }}"
+      spec:
+        ports:
+          - name: "{{ item.database_name }}"
+            protocol: TCP
+            port: "{{ item.database_internal_port }}"
+            targetPort: "{{ item.database_host_port }}"
+  loop: "{{ external_databases }}"
+  when: external_databases | length > 0
+
+- name: Create external database EndpointSlices
+  kubernetes.core.k8s:
+    state: present
+    definition:
+      apiVersion: discovery.k8s.io/v1
+      kind: EndpointSlice
+      metadata:
+        name: "{{ item.database_name }}"
+        namespace: "{{ item.namespace }}"
+        labels:
+          kubernetes.io/service-name: "{{ item.database_name }}"
+      addressType: IPv4
+      endpoints:
+        - addresses:
+            - "{{ item.database_host }}"
+      ports:
+        - name: "{{ item.database_name }}"
+          protocol: TCP
+          port: "{{ item.database_host_port }}"
+  loop: "{{ external_databases }}"
+  when: external_databases | length > 0
