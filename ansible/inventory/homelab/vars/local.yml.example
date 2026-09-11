@@ -26,3 +26,33 @@ vm_username: "your-username-here"
 #     database_internal_port: 3306
 #     database_host_port: 3306
 #     database_host: 10.27.10.37
+
+# External Secrets Operator (playbook 11-external-secrets.yml) — provider connection config.
+
+# AWS-compatible emulator endpoint. endpoint key decides the mode (no enabled flag):
+#   endpoint ABSENT            -> real AWS Secrets Manager defaults (no failure).
+#   endpoint set, non-empty    -> emulator mode; endpoint must be reachable FROM THE
+#                                 CLUSTER (not localhost), e.g. http://10.27.10.38:4566.
+#   endpoint set, empty string -> playbook fails (remove the var to use real AWS,
+#                                 or set the URL).
+# eso_aws_emulator:
+#   endpoint: "http://10.27.10.38:4566"
+
+# Static AWS credentials used against the emulator. This file is gitignored —
+# secrets stay local. Key names are matched by the ClusterSecretStore auth.secretRef.
+# eso_aws_credentials:
+#   access_key_id: "test"
+#   secret_access_key: "test"
+
+# Cluster-wide SecretStores backed by AWS SecretsManager. A creds Secret
+# (eso-aws-creds in the external-secrets namespace) plus one ClusterSecretStore
+# is created per entry. Empty list -> operator-only install (no provider connection).
+# Each entry:
+#   name:     ClusterSecretStore name (must be valid DNS-1123)
+#   region:   AWS region (default us-east-1)
+#   service:  AWS service (default SecretsManager)
+# eso_aws_cluster_stores:
+#   - name: eso-aws
+#     region: us-east-1
+#     service: SecretsManager
+

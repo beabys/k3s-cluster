@@ -1,0 +1,24 @@
+redis-ha:
+  enabled: true
+  replicas: 2
+
+controller:
+  replicas: 1
+
+repoServer:
+  replicas: 2
+
+applicationSet:
+  enabled: true
+  replicas: 2
+
+global:
+  domain: ${argocd_domain}
+
+configs:
+  url: https://${argocd_domain}
+  params:
+    server.insecure: true
+
+server:
+  replicas: 2

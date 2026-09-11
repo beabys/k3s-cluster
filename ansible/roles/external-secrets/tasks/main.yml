@@ -1,0 +1,120 @@
+---
+- name: Check prerequisites (helm)
+  ansible.builtin.command: which helm
+  register: helm_check
+  changed_when: false
+  failed_when: false
+
+- name: Fail if helm missing
+  ansible.builtin.fail:
+    msg: "helm binary not found on control node. Install with: brew install helm"
+  when: helm_check.rc != 0
+
+- name: Check prerequisites (kubectl)
+  ansible.builtin.command: which kubectl
+  register: kubectl_check
+  changed_when: false
+  failed_when: false
+
+- name: Fail if kubectl missing
+  ansible.builtin.fail:
+    msg: "kubectl binary not found on control node. K3s includes kubectl — symlink: ln -s /usr/local/bin/k3s /usr/local/bin/kubectl"
+  when: kubectl_check.rc != 0
+
+- name: Fail if emulator endpoint is set but empty
+  ansible.builtin.fail:
+    msg: >-
+      eso_aws_emulator.endpoint is set but empty. Remove eso_aws_emulator.endpoint
+      to use real AWS Secrets Manager defaults, or set it to the emulator URL (must be
+      reachable from the cluster, e.g. http://10.27.10.38:4566) in
+      ansible/inventory/homelab/vars/local.yml.
+  when:
+    - eso_aws_emulator.endpoint is defined
+    - (eso_aws_emulator.endpoint | default('') | trim) == ''
+
+- name: Validate ClusterSecretStore entry names are DNS-1123
+  ansible.builtin.assert:
+    that:
+      - item.name | default('') is match('^[a-z0-9]([-a-z0-9]*[a-z0-9])?$')
+    fail_msg: >-
+      eso_aws_cluster_stores entry must use a DNS-1123 name. Got name='{{ item.name | default('') }}'
+    quiet: true
+  loop: "{{ eso_aws_cluster_stores }}"
+
+- name: Fail if ClusterSecretStores configured but AWS credentials missing
+  ansible.builtin.fail:
+    msg: >-
+      eso_aws_cluster_stores is not empty but eso_aws_credentials has empty access_key_id
+      or secret_access_key. Set both under eso_aws_credentials in
+      ansible/inventory/homelab/vars/local.yml.
+  when:
+    - eso_aws_cluster_stores | length > 0
+    - (eso_aws_credentials.access_key_id | default('') | trim) == '' or (eso_aws_credentials.secret_access_key | default('') | trim) == ''
+
+- name: Build ESO controller extraEnv
+  ansible.builtin.set_fact:
+    eso_controller_extra_env: >-
+      {{ [{'name': 'AWS_SECRETSMANAGER_ENDPOINT', 'value': eso_aws_emulator.endpoint}]
+          if (eso_aws_emulator.endpoint is defined)
+             and (eso_aws_emulator.endpoint | default('') | trim | length > 0)
+          else [] }}
+
+- name: Add External Secrets Helm repository
+  kubernetes.core.helm_repository:
+    name: external-secrets
+    repo_url: "{{ eso_repo_url }}"
+  ignore_errors: true
+
+- name: Install/Upgrade External Secrets Operator
+  kubernetes.core.helm:
+    name: "{{ eso_release_name }}"
+    chart_ref: "{{ eso_chart }}"
+    chart_version: "{{ eso_version }}"
+    release_namespace: "{{ eso_namespace }}"
+    create_namespace: true
+    wait: true
+    wait_timeout: 300s
+    values:
+      installCRDs: "{{ eso_install_crds }}"
+      extraEnv: "{{ eso_controller_extra_env }}"
+
+- name: Create AWS credentials Secret in external-secrets namespace
+  kubernetes.core.k8s:
+    state: present
+    definition:
+      apiVersion: v1
+      kind: Secret
+      metadata:
+        name: eso-aws-creds
+        namespace: "{{ eso_namespace }}"
+      type: Opaque
+      stringData:
+        access-key: "{{ eso_aws_credentials.access_key_id }}"
+        secret-access-key: "{{ eso_aws_credentials.secret_access_key }}"
+  when: eso_aws_cluster_stores | length > 0
+
+- name: Create AWS ClusterSecretStores
+  kubernetes.core.k8s:
+    state: present
+    definition:
+      apiVersion: external-secrets.io/v1
+      kind: ClusterSecretStore
+      metadata:
+        name: "{{ item.name }}"
+      spec:
+        provider:
+          aws:
+            service: "{{ item.service | default('SecretsManager') }}"
+            region: "{{ item.region | default('us-east-1') }}"
+            auth:
+              secretRef:
+                accessKeyIDSecretRef:
+                  name: eso-aws-creds
+                  namespace: "{{ eso_namespace }}"
+                  key: access-key
+                secretAccessKeySecretRef:
+                  name: eso-aws-creds
+                  namespace: "{{ eso_namespace }}"
+                  key: secret-access-key
+  loop: "{{ eso_aws_cluster_stores }}"
+  when: eso_aws_cluster_stores | length > 0

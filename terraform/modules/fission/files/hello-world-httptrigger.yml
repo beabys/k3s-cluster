@@ -1,0 +1,12 @@
+apiVersion: fission.io/v1
+kind: HTTPTrigger
+metadata:
+  name: hello-world-route
+  namespace: ${fission_namespace}
+spec:
+  functionref:
+    type: name
+    name: hello-world
+  host: ""
+  relativeurl: /hello
+  method: GET
