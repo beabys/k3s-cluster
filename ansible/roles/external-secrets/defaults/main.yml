@@ -1,0 +1,40 @@
+---
+# External Secrets Operator (ESO) — installs the operator and exposes the AWS
+# provider connection (credentials Secret + ClusterSecretStore). This repo only
+# provides infrastructure; consuming service repos own their Namespace and the
+# ExternalSecret that references one of the ClusterSecretStores below.
+
+# Helm chart
+eso_namespace: external-secrets
+eso_chart: external-secrets/external-secrets
+eso_repo_url: https://charts.external-secrets.io
+eso_release_name: external-secrets
+eso_version: "2.10.0"
+eso_install_crds: true
+
+# AWS-compatible secrets emulator, runs OUTSIDE the cluster (URL supplied by user).
+# Presence semantics — endpoint key decides mode (no enabled flag):
+#   endpoint ABSENT or unset  -> real AWS Secrets Manager (controller extraEnv stays
+#                                empty; no failure).
+#   endpoint set, non-empty   -> emulator mode: ESO controller gets
+#                                AWS_SECRETSMANAGER_ENDPOINT = <endpoint>.
+#   endpoint set, empty string -> playbook fails with a clear message (remove the
+#                                 var to use real AWS, or set the URL).
+# Endpoint must be reachable FROM THE CLUSTER, e.g. http://10.27.10.38:4566
+eso_aws_emulator: {}
+
+# Static AWS credentials used against the emulator. Live only in the gitignored
+# ansible/inventory/homelab/vars/local.yml — never commit real values.
+eso_aws_credentials:
+  access_key_id: ""
+  secret_access_key: ""
+
+# Cluster-wide SecretStores backed by AWS SecretsManager. One creds Secret
+# (eso-aws-creds in the external-secrets namespace) plus one ClusterSecretStore
+# is created per entry. Empty list -> operator-only install (no provider connection).
+# Each entry:
+#   name:     ClusterSecretStore name (DNS-1123), e.g. eso-aws
+#   region:   AWS region (default us-east-1)
+#   service:  AWS service (default SecretsManager)
+# Consuming repos reference the store with secretStoreRef {kind: ClusterSecretStore, name: <entry name>}
+eso_aws_cluster_stores: []

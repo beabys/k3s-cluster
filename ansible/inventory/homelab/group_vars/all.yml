@@ -91,3 +91,11 @@ fission_version: "1.27.0"
 fission_domain: "functions.{{ domain }}"
 fission_crd_kustomize_url: "https://github.com/fission/fission/crds/v1?ref=v{{ fission_version }}"
 fission_deploy_examples: true
+
+# External Secrets Operator
+eso_namespace: external-secrets
+eso_chart: external-secrets/external-secrets
+eso_repo_url: https://charts.external-secrets.io
+eso_release_name: external-secrets
+eso_version: "2.10.0"
+eso_install_crds: true

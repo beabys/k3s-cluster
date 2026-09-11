@@ -1,0 +1,12 @@
+apiVersion: fission.io/v1
+kind: Package
+metadata:
+  name: hello-world-pkg
+  namespace: ${fission_namespace}
+spec:
+  environment:
+    name: python-warm
+    namespace: ${fission_namespace}
+  deployment:
+    type: literal
+    literal: ZGVmIG1haW4oKToKICAgIHJldHVybiAiSGVsbG8gZnJvbSB5b3VyIHplcm8tY29sZHN0YXJ0IEhvbWVsYWIgRmFhUyEi

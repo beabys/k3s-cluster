@@ -91,6 +91,12 @@ Adjust inventory and variables if your homelab layout changes.
 │   ├── inventory/          # Inventory and host variables
 │   ├── playbooks/          # Ordered playbooks for infra and services
 │   └── ...
+├── terraform/              # Terraform configuration (alternative to Ansible for playbooks 03-11)
+│   ├── modules/           # One module per component
+│   ├── main.tf
+│   ├── variables.tf       # Single source of truth for all variables
+│   ├── terraform_example.tfvars
+│   └── Makefile
 ├── legacy/                 # Previous manual installation guides and commands
 ├── .ansible-lint           # Linting rules
 └── README.md
@@ -113,6 +119,7 @@ The cluster is installed in a staged sequence. Steps 1-2 run over SSH, and the r
 | 8 | `playbooks/08-argocd.yml` | Install ArgoCD | Localhost / kubeconfig |
 | 9 | `playbooks/09-external-db.yml` | External database Services/EndpointSlices (configurable) | Localhost / kubeconfig |
 | 10 | `playbooks/10-fission.yml` | Install Fission FaaS | Localhost / kubeconfig |
+| 11 | `playbooks/11-external-secrets.yml` | Install External Secrets Operator + AWS provider connection (ClusterSecretStore) | Localhost / kubeconfig |
 
 ## Setup
 
@@ -156,9 +163,43 @@ ansible-playbook playbooks/06-prometheus.yml
 ansible-playbook playbooks/07-loki.yml
 ansible-playbook playbooks/08-argocd.yml
 ansible-playbook playbooks/10-fission.yml
+ansible-playbook playbooks/11-external-secrets.yml
 ```
 
 If you are not using values from `local.yml`, add `--ask-become-pass` where needed.
+
+## External Secrets Operator
+
+[Playbook 11](./ansible/playbooks/11-external-secrets.yml) installs the External Secrets Operator (ESO, chart `external-secrets/external-secrets`, namespace `external-secrets`) and exposes the **AWS provider connection only** — a credentials Secret plus one `ClusterSecretStore` per entry. This repo does **not** create consumer namespaces, `ExternalSecret`s, or demo resources; those belong in the consuming service repos.
+
+Configuration lives in `ansible/inventory/homelab/vars/local.yml` (gitignored — never commit credentials); the schema is documented in [`local.yml.example`](./ansible/inventory/homelab/vars/local.yml.example). The main keys:
+
+- `eso_aws_emulator` — optional `endpoint` key decides the mode. Endpoint **absent** → real AWS Secrets Manager defaults. Endpoint **set (non-empty)** → emulator mode (base URL must be reachable from the cluster). Endpoint **set to empty string** → playbook fails with a clear message.
+- `eso_aws_credentials` — static `access_key_id` / `secret_access_key` used against the emulator.
+- `eso_aws_cluster_stores` — one `ClusterSecretStore` (AWS SecretsManager) per entry; a creds Secret `eso-aws-creds` is created in the `external-secrets` namespace and referenced from every store's `auth.secretRef`. Empty list → operator-only install (no provider connection).
+
+When the emulator is in use (endpoint set), the ESO controller pod gets `AWS_SECRETSMANAGER_ENDPOINT` pointing at it, so all configured stores use the same emulator. No emulator is deployed by this repo — it runs out of cluster.
+
+**Boundary:** consuming service repos own their Namespace and the `ExternalSecret` that references one of the stores above. Reference the cluster-wide store and follow the remote key convention `<svc>/<env>/<name>` with a JSON blob payload:
+
+```yaml
+apiVersion: external-secrets.io/v1
+kind: ExternalSecret
+metadata:
+  name: <es-name>
+  namespace: <service-namespace>
+spec:
+  refreshInterval: 1h
+  secretStoreRef:
+    kind: ClusterSecretStore
+    name: eso-aws            # = eso_aws_cluster_stores entry name
+  target:
+    name: <target-secret>
+    creationPolicy: Owner
+  dataFrom:
+    - extract:
+        key: <svc>/<env>/<name>   # e.g. authorizer/prod/db
+```
 
 ## Exposed services
 
@@ -225,6 +266,61 @@ Planned or sensible next improvements include:
 - [ ] Add alert rules and example SLOs for hosted workloads.
 - [ ] Add CI checks for playbook validation and linting.
 - [ ] Document upgrade procedures for K3s and platform services.
+
+## Terraform (Alternative to Ansible)
+
+Terraform is an alternative to Ansible for deploying playbooks 03-11. Both can coexist; Terraform is the future direction.
+
+### Prerequisites
+
+```bash
+terraform >= 1.0
+helm
+kubectl
+```
+
+### Setup (3 steps)
+
+```bash
+# 1. Copy example vars
+cp terraform/terraform_example.tfvars terraform/terraform.tfvars
+
+# 2. Edit terraform.tfvars with your values:
+#    - domain, metallb_ip_pool_range, all *._domain variables
+#    - traefik_dashboard_password
+#    - eso_aws_* if using External Secrets with AWS
+
+# 3. Initialize
+cd terraform && terraform init
+```
+
+### Usage
+
+```bash
+cd terraform
+
+# Preview changes
+make plan
+
+# Apply (requires kubeconfig pointing to cluster)
+make apply
+
+# Destroy
+make destroy
+```
+
+### Files
+
+- `terraform/terraform.tfvars` — personal values, gitignored, contains secrets
+- `terraform/terraform_example.tfvars` — committed template with placeholder values
+- `terraform/secrets.tfvars` — no longer used (secrets in terraform.tfvars now)
+
+### Migration note
+
+- Terraform deploys the same 9 components as Ansible playbooks 03-11
+- MetalLB restart Traefik automatically after apply
+- Fission CRDs applied via local-exec (kubectl --server-side)
+- ESO ClusterSecretStore created only when `eso_aws_cluster_stores` is non-empty
 
 ## Related projects
 

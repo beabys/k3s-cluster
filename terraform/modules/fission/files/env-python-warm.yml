@@ -1,0 +1,14 @@
+apiVersion: fission.io/v1
+kind: Environment
+metadata:
+  name: python-warm
+  namespace: ${fission_namespace}
+spec:
+  version: 3
+  runtime:
+    image: ghcr.io/fission/python-env
+  poolsize: 3
+  resources:
+    requests:
+      cpu: 50m
+      memory: 64Mi
