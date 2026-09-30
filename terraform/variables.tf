@@ -4,7 +4,7 @@
 # Domain
 variable "domain" {
   description = "Base DNS domain for all services"
-  default     = "home.beabys.com"
+  default     = "your.domain"
 }
 
 # Traefik
@@ -27,7 +27,7 @@ variable "traefik_dashboard_password" {
   default = "admin"
 }
 variable "traefik_dashboard_domain" {
-  default = "traefik.home.beabys.com"
+  default = null
 }
 
 # MetalLB
@@ -64,7 +64,7 @@ variable "longhorn_version" {
   default = "1.12.0"
 }
 variable "longhorn_domain" {
-  default = "longhorn.home.beabys.com"
+  default = null
 }
 variable "longhornctl_dir" {
   default = "/tmp"
@@ -84,10 +84,10 @@ variable "prometheus_release_name" {
   default = "prometheus"
 }
 variable "prometheus_domain" {
-  default = "prometheus.home.beabys.com"
+  default = null
 }
 variable "alertmanager_domain" {
-  default = "alertmanager.home.beabys.com"
+  default = null
 }
 
 # Loki
@@ -104,7 +104,7 @@ variable "loki_release_name" {
   default = "loki"
 }
 variable "loki_domain" {
-  default = "loki.home.beabys.com"
+  default = null
 }
 
 # ArgoCD
@@ -121,7 +121,7 @@ variable "argocd_release_name" {
   default = "argo-cd"
 }
 variable "argocd_domain" {
-  default = "argocd.home.beabys.com"
+  default = null
 }
 
 # Fission
@@ -141,7 +141,7 @@ variable "fission_version" {
   default = "1.27.0"
 }
 variable "fission_domain" {
-  default = "functions.home.beabys.com"
+  default = null
 }
 variable "fission_crd_kustomize_url" {
   default = "https://github.com/fission/fission/crds/v1?ref=v1.27.0"

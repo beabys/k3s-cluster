@@ -39,9 +39,9 @@
 - name: Apply Alertmanager Ingress
   kubernetes.core.k8s:
     state: present
-    src: alertmanager-ingress.yml
+    definition: "{{ lookup('template', 'alertmanager-ingress.yml.j2') | from_yaml }}"
 
 - name: Apply Prometheus Ingress
   kubernetes.core.k8s:
     state: present
-    src: prometheus-ingress.yml
+    definition: "{{ lookup('template', 'prometheus-ingress.yml.j2') | from_yaml }}"

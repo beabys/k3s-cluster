@@ -83,4 +83,4 @@
 - name: Apply Longhorn UI Ingress
   kubernetes.core.k8s:
     state: present
-    src: ingress.yml
+    definition: "{{ lookup('template', 'ingress.yml.j2') | from_yaml }}"

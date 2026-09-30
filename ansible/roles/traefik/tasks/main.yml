@@ -59,8 +59,7 @@
     chart_ref: "{{ traefik_chart }}"
     release_namespace: "{{ traefik_namespace }}"
     create_namespace: true
-    values_files:
-      - "{{ role_path }}/files/values.yaml"
+    values: ["{{ lookup('template', 'values.yaml.j2') | from_yaml }}"]
 
 - name: Create dashboard auth secret
   kubernetes.core.k8s:

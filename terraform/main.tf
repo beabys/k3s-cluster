@@ -1,6 +1,16 @@
 # Wire all 9 component modules. Order matters: traefik first (ingress),
 # metallb second (restarts traefik to pick up LoadBalancer IP).
 
+locals {
+  traefik_dashboard_domain = coalesce(var.traefik_dashboard_domain, "traefik.${var.domain}")
+  longhorn_domain          = coalesce(var.longhorn_domain, "longhorn.${var.domain}")
+  prometheus_domain        = coalesce(var.prometheus_domain, "prometheus.${var.domain}")
+  alertmanager_domain      = coalesce(var.alertmanager_domain, "alertmanager.${var.domain}")
+  loki_domain              = coalesce(var.loki_domain, "loki.${var.domain}")
+  argocd_domain            = coalesce(var.argocd_domain, "argocd.${var.domain}")
+  fission_domain           = coalesce(var.fission_domain, "functions.${var.domain}")
+}
+
 module "traefik" {
   source = "./modules/traefik"
 
@@ -10,7 +20,7 @@ module "traefik" {
   traefik_release_name     = var.traefik_release_name
   traefik_dashboard_user   = var.traefik_dashboard_user
   traefik_dashboard_password = var.traefik_dashboard_password
-  traefik_dashboard_domain = var.traefik_dashboard_domain
+  traefik_dashboard_domain = local.traefik_dashboard_domain
 }
 
 module "metallb" {
@@ -35,7 +45,7 @@ module "longhorn" {
   longhorn_repo_url     = var.longhorn_repo_url
   longhorn_release_name = var.longhorn_release_name
   longhorn_version      = var.longhorn_version
-  longhorn_domain       = var.longhorn_domain
+  longhorn_domain       = local.longhorn_domain
 
   depends_on = [module.traefik]
 }
@@ -47,8 +57,8 @@ module "prometheus" {
   prometheus_chart        = var.prometheus_chart
   prometheus_repo_url     = var.prometheus_repo_url
   prometheus_release_name = var.prometheus_release_name
-  prometheus_domain       = var.prometheus_domain
-  alertmanager_domain     = var.alertmanager_domain
+  prometheus_domain       = local.prometheus_domain
+  alertmanager_domain     = local.alertmanager_domain
 
   depends_on = [module.traefik]
 }
@@ -60,7 +70,7 @@ module "loki" {
   loki_chart        = var.loki_chart
   loki_repo_url     = var.loki_repo_url
   loki_release_name = var.loki_release_name
-  loki_domain       = var.loki_domain
+  loki_domain       = local.loki_domain
 
   depends_on = [module.traefik]
 }
@@ -72,7 +82,7 @@ module "argocd" {
   argocd_chart        = var.argocd_chart
   argocd_repo_url     = var.argocd_repo_url
   argocd_release_name = var.argocd_release_name
-  argocd_domain       = var.argocd_domain
+  argocd_domain       = local.argocd_domain
 
   depends_on = [module.traefik]
 }
@@ -91,7 +101,7 @@ module "fission" {
   fission_repo_url          = var.fission_repo_url
   fission_release_name      = var.fission_release_name
   fission_version           = var.fission_version
-  fission_domain            = var.fission_domain
+  fission_domain            = local.fission_domain
   fission_crd_kustomize_url = var.fission_crd_kustomize_url
   fission_deploy_examples   = var.fission_deploy_examples
 

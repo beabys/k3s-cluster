@@ -10,7 +10,7 @@ vm_username: "your-username-here"
 # ansible_become_password: "your-sudo-password-here"
 
 # Infrastructure overrides — uncomment to change from defaults
-# domain: home.beabys.com            # DNS domain for *.home.beabys.com services
+domain: your.domain            # DNS domain for *.your.domain services
 # metallb_ip_pool_range: 10.27.10.60-10.27.10.89  # MetalLB IP pool
 
 # External databases to expose inside the cluster (playbook 09-external-db.yml)

@@ -1,6 +1,6 @@
 # Copy this file to terraform.tfvars and customize for your environment.
 # terraform.tfvars is gitignored — your personal values stay local.
-# Secrets (traefik_dashboard_password, eso_aws_*) go in secrets.tfvars (also gitignored).
+# Secrets (traefik_dashboard_password, eso_aws_*) go in terraform.tfvars (gitignored).
 
 domain = "example.com"
 
@@ -10,6 +10,7 @@ traefik_chart            = "traefik/traefik"
 traefik_repo_url         = "https://traefik.github.io/charts"
 traefik_release_name     = "traefik"
 traefik_dashboard_user   = "admin"
+# OPTIONAL: defaults to traefik.<domain> if unset
 traefik_dashboard_domain = "traefik.example.com"
 
 # MetalLB
@@ -25,6 +26,7 @@ longhorn_chart        = "longhorn/longhorn"
 longhorn_repo_url     = "https://charts.longhorn.io"
 longhorn_release_name = "longhorn"
 longhorn_version      = "1.12.0"
+# OPTIONAL: defaults to longhorn.<domain> if unset
 longhorn_domain       = "longhorn.example.com"
 longhornctl_dir       = "/tmp"
 
@@ -33,7 +35,9 @@ prometheus_namespace    = "monitoring"
 prometheus_chart        = "prometheus-community/kube-prometheus-stack"
 prometheus_repo_url     = "https://prometheus-community.github.io/helm-charts"
 prometheus_release_name = "prometheus"
+# OPTIONAL: defaults to prometheus.<domain> if unset
 prometheus_domain       = "prometheus.example.com"
+# OPTIONAL: defaults to alertmanager.<domain> if unset
 alertmanager_domain     = "alertmanager.example.com"
 
 # Loki
@@ -41,6 +45,7 @@ loki_namespace    = "grafana-loki"
 loki_chart        = "grafana/loki-stack"
 loki_repo_url     = "https://grafana.github.io/helm-charts"
 loki_release_name = "loki"
+# OPTIONAL: defaults to loki.<domain> if unset
 loki_domain       = "loki.example.com"
 
 # ArgoCD
@@ -48,6 +53,7 @@ argocd_namespace    = "argo-cd"
 argocd_chart        = "argo-cd/argo-cd"
 argocd_repo_url     = "https://argoproj.github.io/argo-helm"
 argocd_release_name = "argo-cd"
+# OPTIONAL: defaults to argocd.<domain> if unset
 argocd_domain       = "argocd.example.com"
 
 # Fission
@@ -56,6 +62,7 @@ fission_chart                = "fission-charts/fission-all"
 fission_repo_url             = "https://fission.github.io/fission-charts"
 fission_release_name         = "fission"
 fission_version              = "1.27.0"
+# OPTIONAL: defaults to functions.<domain> if unset
 fission_domain               = "functions.example.com"
 fission_crd_kustomize_url    = "https://github.com/fission/fission/crds/v1?ref=v1.27.0"
 fission_deploy_examples      = true
