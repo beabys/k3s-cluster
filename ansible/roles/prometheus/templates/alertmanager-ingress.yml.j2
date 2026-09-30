@@ -1,18 +1,18 @@
 apiVersion: networking.k8s.io/v1
 kind: Ingress
 metadata:
-  name: loki-server
-  namespace: grafana-loki
+  name: alertmanager-server
+  namespace: monitoring
 spec:
   ingressClassName: traefik
   rules:
-  - host: loki.home.beabys.com
+  - host: {{ alertmanager_domain }}
     http:
       paths:
       - path: /
         pathType: Prefix
         backend:
           service:
-            name: loki
+            name: alertmanager-operated
             port:
-              number: 3100
+              number: 9093

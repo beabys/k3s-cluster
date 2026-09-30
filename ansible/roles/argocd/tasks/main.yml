@@ -33,5 +33,4 @@
     chart_ref: "{{ argocd_chart }}"
     release_namespace: "{{ argocd_namespace }}"
     create_namespace: true
-    values_files:
-      - "{{ role_path }}/files/values.yaml"
+    values: ["{{ lookup('template', 'values.yaml.j2') | from_yaml }}"]

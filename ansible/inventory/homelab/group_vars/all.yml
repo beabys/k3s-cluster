@@ -1,6 +1,6 @@
 ---
 # Domain
-domain: home.beabys.com
+domain: your.domain
 
 # Docker host
 # docker_host_ip is defined in host_vars/docker-host.yml
@@ -67,6 +67,8 @@ prometheus_namespace: monitoring
 prometheus_chart: prometheus-community/kube-prometheus-stack
 prometheus_repo_url: https://prometheus-community.github.io/helm-charts
 prometheus_release_name: prometheus
+prometheus_domain: "prometheus.{{ domain }}"
+alertmanager_domain: "alertmanager.{{ domain }}"
 
 # Loki
 loki_namespace: grafana-loki

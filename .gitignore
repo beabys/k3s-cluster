@@ -11,8 +11,8 @@ ansible/inventory/homelab/host_vars/docker-host.yml
 .opencode/
 AGENTS.md
 
-
 # terraform
 *.tfstate*
 .terraform/
 !terraform_example.tfvars
+terraform/terraform.tfvars

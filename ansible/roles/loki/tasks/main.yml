@@ -39,4 +39,4 @@
 - name: Apply Loki Ingress
   kubernetes.core.k8s:
     state: present
-    src: loki-ingress.yml
+    definition: "{{ lookup('template', 'loki-ingress.yml.j2') | from_yaml }}"

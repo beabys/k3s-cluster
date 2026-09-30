@@ -54,7 +54,7 @@
 - name: Apply Fission Router Ingress
   kubernetes.core.k8s:
     state: present
-    src: router-ingress.yml
+    definition: "{{ lookup('template', 'router-ingress.yml.j2') | from_yaml }}"
 
 - name: Apply example Environment (python-warm)
   kubernetes.core.k8s:
