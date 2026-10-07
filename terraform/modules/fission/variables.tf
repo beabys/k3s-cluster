@@ -6,3 +6,6 @@ variable "fission_version" {}
 variable "fission_domain" {}
 variable "fission_crd_kustomize_url" {}
 variable "fission_deploy_examples" {}
+variable "enable_crd_manifests" {
+  type = bool
+}

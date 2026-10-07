@@ -23,3 +23,6 @@ variable "eso_aws_cluster_stores" {
   }))
   default = []
 }
+variable "enable_crd_manifests" {
+  type = bool
+}

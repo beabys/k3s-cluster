@@ -1,0 +1,68 @@
+# Jaeger v2 with Elasticsearch storage
+# Uses userconfig to fully override the default config (chart 4.14.1)
+# Legacy top-level storage: key removed — ignored by v2 chart, kept only userconfig.
+
+userconfig:
+  service:
+    extensions: [jaeger_storage, jaeger_query, healthcheckv2]
+    pipelines:
+      traces:
+        receivers: [otlp]
+        processors: [batch]
+        exporters: [jaeger_storage_exporter]
+    telemetry:
+      resource:
+        service.name: jaeger
+      metrics:
+        level: detailed
+        readers:
+          - pull:
+              exporter:
+                prometheus:
+                  host: 0.0.0.0
+                  port: 8888
+
+  extensions:
+    healthcheckv2:
+      use_v2: true
+      http:
+        endpoint: 0.0.0.0:13133
+
+    jaeger_query:
+      storage:
+        traces: primary_store
+        traces_archive: archive_store
+
+    jaeger_storage:
+      backends:
+        primary_store:
+          elasticsearch:
+            server_urls: ["http://elasticsearch-master.elasticsearch.svc.cluster.local:9200"]
+        archive_store:
+          elasticsearch:
+            server_urls: ["http://elasticsearch-master.elasticsearch.svc.cluster.local:9200"]
+
+  receivers:
+    otlp:
+      protocols:
+        grpc:
+          endpoint: 0.0.0.0:4317
+        http:
+          endpoint: 0.0.0.0:4318
+
+  processors:
+    batch: {}
+
+  exporters:
+    jaeger_storage_exporter:
+      trace_storage: primary_store
+
+jaeger:
+  replicas: 1
+  resources:
+    limits:
+      cpu: 500m
+      memory: 512Mi
+    requests:
+      cpu: 100m
+      memory: 256Mi

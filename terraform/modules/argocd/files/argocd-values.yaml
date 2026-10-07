@@ -1,24 +1,33 @@
 redis-ha:
-  enabled: true
+  enabled: false
   replicas: 2
 
 controller:
   replicas: 1
 
 repoServer:
-  replicas: 2
+  replicas: 1
 
 applicationSet:
   enabled: true
-  replicas: 2
+  replicas: 1
 
 global:
   domain: ${argocd_domain}
 
 configs:
   url: https://${argocd_domain}
+  cm:
+    resource.exclusions: |
+      - apiGroups: [""]
+        kinds: ["Event"]
+      - apiGroups: ["metrics.k8s.io"]
+        kinds: ["*"]
+      - apiGroups: ["discovery.k8s.io"]
+        kinds: ["EndpointSlice"]
   params:
     server.insecure: true
+    controller.resync.period: "10m"
 
 server:
-  replicas: 2
+  replicas: 1

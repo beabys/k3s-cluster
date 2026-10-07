@@ -7,7 +7,7 @@ Two-layer configuration for the k3s-cluster homelab platform. Each layer maps to
 | **A** | Phase 1 — Bootstrap | Ansible (SSH) | `ansible/inventory/homelab/` | Infra: HAProxy, MariaDB, K3s install |
 | **B** | Phase 2 — Services | Terraform (kubeconfig) | `terraform/` | Platform services via Helm |
 
-Layer A builds the cluster. Layer B deploys services onto it. Both layers must agree on `domain`, `metallb_ip_pool_range`, and the docker-host IP.
+Layer A builds the cluster. Layer B deploys services onto it. Both layers must agree on the docker-host IP.
 
 ---
 
@@ -38,7 +38,7 @@ cd terraform && terraform init
 Minimum edits in `terraform.tfvars`:
 
 1. `domain` — base DNS domain.
-2. `metallb_ip_pool_range` — must match Layer A if overridden.
+2. `metallb_ip_pool_range` — IP pool for LoadBalancer services.
 3. `traefik_dashboard_password` — change from default.
 4. All `*_domain` vars — if non-default domain used.
 
@@ -65,6 +65,8 @@ ansible/inventory/homelab/
     ├── masters.yml            # committed
     └── workers.yml            # committed
 ```
+
+**Playbooks using this config:** `01-infra.yml` (HAProxy+MariaDB), `02-k3s.yml` (K3s install), `03-kubeconfig.yml` (fetch kubeconfig), `04-node-prereqs.yml` (Longhorn prerequisites: open-iscsi, nfs-common, kernel modules).
 
 ### `hosts.ini`
 
@@ -100,42 +102,6 @@ vm_username: "beabys"
 
 # Sudo password — optional; omit and use --ask-become-pass or ANSIBLE_BECOME_PASSWORD env
 # ansible_become_password: "your-sudo-password"
-
-# Infrastructure overrides (uncomment to change from group_vars/all.yml defaults)
-# domain: your.domain
-# metallb_ip_pool_range: 10.27.10.60-10.27.10.89
-
-# External databases — expose external DBs as Services/EndpointSlices in-cluster
-external_databases:
-  - namespace: databases
-    database_name: mysql
-    database_internal_port: 3306
-    database_host_port: 3306
-    database_host: 10.27.10.37
-  - namespace: databases
-    database_name: postgresql
-    database_internal_port: 5432
-    database_host_port: 5432
-    database_host: 10.27.10.37
-
-# External Secrets Operator — AWS emulator endpoint
-# endpoint ABSENT        -> real AWS Secrets Manager defaults
-# endpoint non-empty     -> emulator mode (must be reachable FROM CLUSTER)
-# endpoint empty string  -> playbook fails
-eso_aws_emulator:
-  endpoint: "http://10.27.10.38:4566"
-
-# Static AWS credentials for emulator (gitignored file — secrets stay local)
-eso_aws_credentials:
-  access_key_id: "test"
-  secret_access_key: "test"
-
-# Cluster-wide SecretStores (AWS SecretsManager). Empty = operator-only install.
-# Each entry: name (DNS-1123), region (default us-east-1), service (default SecretsManager)
-eso_aws_cluster_stores:
-  - name: eso-aws
-    region: us-east-1
-    service: SecretsManager
 ```
 
 Key reference:
@@ -144,30 +110,6 @@ Key reference:
 |-----|----------|---------|
 | `vm_username` | **yes** | SSH user for `[masters]` and `[workers]` groups |
 | `ansible_become_password` | no | Sudo password; alternative: `--ask-become-pass` or env `ANSIBLE_BECOME_PASSWORD` |
-| `domain` | no | Override base DNS domain (default: `your.domain`; set in gitignored `vars/local.yml` copied from `local.yml.example`, which ships `domain: your.domain` — edit to your real domain) |
-| `metallb_ip_pool_range` | no | Override MetalLB IP pool (default: `10.27.10.60-10.27.10.89`) |
-| `external_databases` | no | List of external DBs to expose as in-cluster Services. Empty = no Services created |
-| `eso_aws_emulator.endpoint` | no | Mode switch for ESO AWS provider (see modes below) |
-| `eso_aws_credentials` | no | Static creds for emulator mode |
-| `eso_aws_cluster_stores` | no | List of `ClusterSecretStore` resources. Empty = operator-only install |
-
-#### `eso_aws_emulator.endpoint` modes
-
-| Value | Behavior |
-|-------|----------|
-| Key absent | Real AWS Secrets Manager defaults. No failure. |
-| Non-empty string (e.g. `http://10.27.10.38:4566`) | Emulator mode. URL must be reachable **from the cluster** (not localhost). |
-| Empty string `""` | Playbook fails with clear error. Remove the key or set a real URL. |
-
-#### `external_databases` entry schema
-
-| Key | Type | Purpose |
-|-----|------|---------|
-| `namespace` | string | Kubernetes namespace for the Service/EndpointSlice |
-| `database_name` | string | Service/EndpointSlice name (must be valid DNS-1123) |
-| `database_internal_port` | number | Cluster port (`Service.spec.ports[].port`) |
-| `database_host_port` | number | Port on the external database host |
-| `database_host` | string | IP or hostname of the external database |
 
 ### `host_vars/docker-host.yml`
 
@@ -188,16 +130,13 @@ docker_host_ip: 10.27.10.50
 |-----|----------|---------|
 | `ansible_user` | yes | SSH user for docker-host (default: `root`) |
 | `docker_users` | yes | List of users added to `docker` group |
-| `docker_host_ip` | **yes** | IP of LXC container. Used by `group_vars/all.yml` to build `k3s_datastore_endpoint`, `k3s_tls_san`, `k3s_server_url`. Missing this breaks playbooks 02 and 02.5. |
+| `docker_host_ip` | **yes** | IP of LXC container. Used by `group_vars/all.yml` to build `k3s_datastore_endpoint`, `k3s_tls_san`, `k3s_server_url`. Missing this breaks playbooks 02 and 03. |
 
 ### `group_vars/all.yml` (committed defaults)
 
-Do not edit by hand. Override via `vars/local.yml`. Contains all default values for every component.
+Do not edit by hand. Override via `vars/local.yml`. Contains default values for bootstrap components.
 
 Key groups:
-
-**Domain:**
-- `domain: your.domain` (committed default in `group_vars/all.yml`; override in gitignored `vars/local.yml`. Service domains derive as `<service>.{{ domain }}`.)
 
 **HAProxy:**
 - `haproxy_image: haproxy:latest`
@@ -227,8 +166,6 @@ Key groups:
 - `k3s_datastore_endpoint: "mysql://k3s:k3spass@tcp({{ hostvars['docker-host']['docker_host_ip'] }}:3306)/k3sdb"`
 - `k3s_tls_san: "{{ hostvars['docker-host']['docker_host_ip'] }}"`
 - `k3s_server_url: "https://{{ hostvars['docker-host']['docker_host_ip'] }}:6443"`
-
-**Per-service vars** (namespace, chart, repo_url, release_name, version, domain) for: traefik, metallb, longhorn, prometheus, loki, argocd, fission, eso.
 
 ### `group_vars/masters.yml` + `group_vars/workers.yml` (committed)
 
@@ -276,7 +213,7 @@ terraform/
 ├── Makefile                     # committed — plan/apply/destroy with -var-file=terraform.tfvars
 ├── terraform_example.tfvars     # committed — template with placeholder values
 ├── terraform.tfvars             # gitignored — your personal values + secrets
-├── modules/                     # committed — one module per component (9 modules)
+├── modules/                     # committed — one module per component (12 modules)
 └── .terraform/                  # gitignored — terraform init output
 ```
 
@@ -339,12 +276,37 @@ prometheus_release_name = "prometheus"
 # prometheus_domain       = "prometheus.your.domain"    # optional — defaults to prometheus.${var.domain}
 # alertmanager_domain     = "alertmanager.your.domain"  # optional — defaults to alertmanager.${var.domain}
 
-# Loki
-loki_namespace    = "grafana-loki"
-loki_chart        = "grafana/loki-stack"
-loki_repo_url     = "https://grafana.github.io/helm-charts"
-loki_release_name = "loki"
-# loki_domain       = "loki.your.domain"  # optional — defaults to loki.${var.domain}
+# Elasticsearch
+elasticsearch_namespace    = "elasticsearch"
+elasticsearch_chart        = "elastic/elasticsearch"
+elasticsearch_repo_url     = "https://helm.elastic.co"
+elasticsearch_release_name = "elasticsearch"
+elasticsearch_version      = "8.5.1"
+elasticsearch_storage_size = "10Gi"
+
+# Jaeger
+jaeger_namespace    = "jaeger"
+jaeger_chart        = "jaegertracing/jaeger"
+jaeger_repo_url     = "https://jaegertracing.github.io/helm-charts"
+jaeger_release_name = "jaeger"
+jaeger_version      = "4.14.1"
+# jaeger_domain       = "jaeger.your.domain"  # optional — defaults to jaeger.${var.domain}
+
+# OpenTelemetry Collector
+otel_namespace    = "observability"
+otel_chart        = "open-telemetry/opentelemetry-collector"
+otel_repo_url     = "https://open-telemetry.github.io/opentelemetry-helm-charts"
+otel_release_name = "otel-collector"
+otel_version      = "0.175.1"
+
+# Grafana
+grafana_namespace      = "monitoring"
+grafana_chart          = "grafana/grafana"
+grafana_repo_url       = "https://grafana.github.io/helm-charts"
+grafana_release_name   = "grafana"
+grafana_version        = "10.5.15"
+# grafana_domain         = "grafana.your.domain"  # optional — defaults to grafana.${var.domain}
+grafana_admin_password = "admin"
 
 # ArgoCD
 argocd_namespace    = "argo-cd"
@@ -382,7 +344,7 @@ external_databases = []
 traefik_dashboard_password = "CHANGE_ME"
 ```
 
-### Variable reference (55 variables in `variables.tf`)
+### Variable reference (74 variables in `variables.tf`)
 
 #### Domain
 
@@ -435,15 +397,49 @@ traefik_dashboard_password = "CHANGE_ME"
 | `prometheus_domain` | `null` (derived) | Prometheus UI FQDN. Defaults to `prometheus.${var.domain}` via `coalesce` in `main.tf`. Set only to override. |
 | `alertmanager_domain` | `null` (derived) | Alertmanager UI FQDN. Defaults to `alertmanager.${var.domain}` via `coalesce` in `main.tf`. Set only to override. |
 
-#### Loki (5 variables)
+#### Elasticsearch (6 variables)
 
 | Variable | Default | Purpose |
 |----------|---------|---------|
-| `loki_namespace` | `"grafana-loki"` | Kubernetes namespace |
-| `loki_chart` | `"grafana/loki-stack"` | Helm chart |
-| `loki_repo_url` | `"https://grafana.github.io/helm-charts"` | Helm repo |
-| `loki_release_name` | `"loki"` | Helm release name |
-| `loki_domain` | `null` (derived) | Loki FQDN. Defaults to `loki.${var.domain}` via `coalesce` in `main.tf`. Set only to override. |
+| `elasticsearch_namespace` | `"elasticsearch"` | Kubernetes namespace |
+| `elasticsearch_chart` | `"elastic/elasticsearch"` | Helm chart |
+| `elasticsearch_repo_url` | `"https://helm.elastic.co"` | Helm repo |
+| `elasticsearch_release_name` | `"elasticsearch"` | Helm release name |
+| `elasticsearch_version` | `"8.5.1"` | Chart version |
+| `elasticsearch_storage_size` | `"10Gi"` | PVC storage size |
+
+#### Jaeger (6 variables)
+
+| Variable | Default | Purpose |
+|----------|---------|---------|
+| `jaeger_namespace` | `"jaeger"` | Kubernetes namespace |
+| `jaeger_chart` | `"jaegertracing/jaeger"` | Helm chart |
+| `jaeger_repo_url` | `"https://jaegertracing.github.io/helm-charts"` | Helm repo |
+| `jaeger_release_name` | `"jaeger"` | Helm release name |
+| `jaeger_version` | `"4.14.1"` | Chart version |
+| `jaeger_domain` | `null` (derived) | Jaeger UI FQDN. Defaults to `jaeger.${var.domain}` via `coalesce` in `main.tf`. Set only to override. |
+
+#### OpenTelemetry Collector (5 variables)
+
+| Variable | Default | Purpose |
+|----------|---------|---------|
+| `otel_namespace` | `"observability"` | Kubernetes namespace |
+| `otel_chart` | `"open-telemetry/opentelemetry-collector"` | Helm chart |
+| `otel_repo_url` | `"https://open-telemetry.github.io/opentelemetry-helm-charts"` | Helm repo |
+| `otel_release_name` | `"otel-collector"` | Helm release name |
+| `otel_version` | `"0.175.1"` | Chart version |
+
+#### Grafana (7 variables)
+
+| Variable | Default | Purpose |
+|----------|---------|---------|
+| `grafana_namespace` | `"monitoring"` | Kubernetes namespace |
+| `grafana_chart` | `"grafana/grafana"` | Helm chart |
+| `grafana_repo_url` | `"https://grafana.github.io/helm-charts"` | Helm repo |
+| `grafana_release_name` | `"grafana"` | Helm release name |
+| `grafana_version` | `"10.5.15"` | Chart version |
+| `grafana_domain` | `null` (derived) | Grafana UI FQDN. Defaults to `grafana.${var.domain}` via `coalesce` in `main.tf`. Set only to override. |
+| `grafana_admin_password` | `"admin"` | Grafana admin password — **CHANGE THIS** |
 
 #### ArgoCD (5 variables)
 
@@ -538,7 +534,7 @@ external_databases = [
 | File | Contains |
 |------|----------|
 | `ansible/inventory/homelab/hosts.ini` | Host IPs |
-| `ansible/inventory/homelab/vars/local.yml` | `vm_username`, `ansible_become_password`, `eso_aws_credentials`, `external_databases` |
+| `ansible/inventory/homelab/vars/local.yml` | `vm_username`, `ansible_become_password` |
 | `ansible/inventory/homelab/host_vars/docker-host.yml` | `docker_host_ip`, `ansible_user` |
 | `terraform/terraform.tfvars` | All personal values + secrets (`traefik_dashboard_password`, `eso_aws_*`) |
 | `terraform/*.tfstate*` | Terraform state |
@@ -559,7 +555,7 @@ external_databases = [
 
 ### Secret placement
 
-- **Ansible secrets** (`ansible_become_password`, `eso_aws_credentials`) → `vars/local.yml`
+- **Ansible secrets** (`ansible_become_password`) → `vars/local.yml`
 - **Terraform secrets** (`traefik_dashboard_password`, `eso_aws_access_key_id`, `eso_aws_secret_access_key`) → `terraform.tfvars`
 - `secrets.tfvars` is no longer used. All secrets live in `terraform.tfvars`.
 
@@ -569,7 +565,7 @@ external_databases = [
 
 ### `docker_host_ip` missing
 
-Symptom: Playbooks 02 and 02.5 fail. The `k3s_datastore_endpoint`, `k3s_tls_san`, and `k3s_server_url` all interpolate `hostvars['docker-host']['docker_host_ip']`. If unset, K3s cannot connect to MariaDB and TLS SAN is wrong.
+Symptom: Playbooks 02 and 03 fail. The `k3s_datastore_endpoint`, `k3s_tls_san`, and `k3s_server_url` all interpolate `hostvars['docker-host']['docker_host_ip']`. If unset, K3s cannot connect to MariaDB and TLS SAN is wrong.
 
 Fix: Set `docker_host_ip` in `host_vars/docker-host.yml`.
 
@@ -579,37 +575,13 @@ Symptom: Ansible cannot SSH to masters/workers. `group_vars/masters.yml` and `gr
 
 Fix: Set `vm_username` in `vars/local.yml`.
 
-### `eso_aws_emulator.endpoint` empty string
-
-Symptom: Playbook 11 fails with explicit error. Empty string is not the same as absent.
-
-Fix: Either remove the `endpoint` key entirely (real AWS mode) or set a reachable URL (emulator mode).
-
-### Emulator endpoint not reachable from cluster
-
-Symptom: ESO controller cannot reach the emulator. The endpoint must be reachable **from inside the cluster**, not from the control node. `localhost` or `127.0.0.1` will not work.
-
-Fix: Use the host's LAN IP (e.g. `http://10.27.10.38:4566`).
-
-### Empty `eso_aws_cluster_stores`
-
-Behavior: Operator-only install. No `ClusterSecretStore` resources created. No AWS provider connection.
-
 ### Empty `external_databases`
 
 Behavior: No Services or EndpointSlices created for external databases.
 
 ### Terraform kubeconfig
 
-Terraform `providers.tf` uses `~/.kube/config` for helm and kubernetes providers. Phase 1 step 2.5 (`02.5-kubeconfig.yml`) fetches kubeconfig to this location. If skipped, ensure kubeconfig is present before `make plan`.
-
-### MetalLB IP pool mismatch
-
-If `metallb_ip_pool_range` differs between Layer A (`vars/local.yml`) and Layer B (`terraform.tfvars`), services will get IPs outside the expected range. Keep them in sync.
-
-### Domain mismatch
-
-If `domain` differs between layers, service FQDNs will not match. Keep `domain` consistent or override each `*_domain` variable explicitly.
+Terraform `providers.tf` uses `~/.kube/config` for helm and kubernetes providers. Phase 1 step 03 (`03-kubeconfig.yml`) fetches kubeconfig to this location. If skipped, ensure kubeconfig is present before `make plan`.
 
 ---
 
@@ -620,7 +592,7 @@ If `domain` differs between layers, service FQDNs will not match. Keep `domain` 
 | A | `ansible/inventory/homelab/group_vars/all.yml` | Committed defaults for all Ansible vars |
 | A | `ansible/inventory/homelab/vars/local.yml.example` | Template for user overrides |
 | A | `ansible/inventory/homelab/host_vars/docker-host.yml.example` | Template for docker-host vars |
-| B | `terraform/variables.tf` | Single source of truth for all Terraform vars (55 variables) |
+| B | `terraform/variables.tf` | Single source of truth for all Terraform vars (74 variables) |
 | B | `terraform/terraform_example.tfvars` | Template for user values |
 
-Both layers mirror the same service configuration (namespace, chart, repo, release name, version, domain). Layer A uses YAML; Layer B uses HCL. Defaults match across both.
+Layer A bootstraps the cluster (HAProxy, MariaDB, K3s, kubeconfig). Layer B deploys services onto it (Terraform, Helm). Layer A uses YAML; Layer B uses HCL.

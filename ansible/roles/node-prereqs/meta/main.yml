@@ -1,0 +1,18 @@
+---
+dependencies: []
+galaxy_info:
+  author: k3s-cluster
+  description: Install Longhorn prerequisites (open-iscsi, nfs-common, kernel modules)
+  license: MIT
+  min_ansible_version: "2.15"
+  platforms:
+    - name: Ubuntu
+      versions:
+        - focal
+        - jammy
+        - noble
+  galaxy_tags:
+    - longhorn
+    - storage
+    - kubernetes
+    - prerequisites

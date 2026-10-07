@@ -9,6 +9,8 @@ resource "helm_release" "longhorn" {
   namespace        = var.longhorn_namespace
   create_namespace = true
   version          = var.longhorn_version
+  wait             = false
+  timeout          = 600
 
   values = [
     file("${path.module}/files/longhorn-values.yaml")

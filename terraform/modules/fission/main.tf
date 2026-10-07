@@ -11,6 +11,7 @@ resource "helm_release" "fission" {
   namespace        = var.fission_namespace
   create_namespace = true
   version          = var.fission_version
+  wait             = false
   timeout          = 600
 
   values = [
@@ -30,7 +31,7 @@ resource "kubernetes_manifest" "router_ingress" {
 }
 
 resource "kubernetes_manifest" "env_python_warm" {
-  count = var.fission_deploy_examples ? 1 : 0
+  count = (var.enable_crd_manifests && var.fission_deploy_examples) ? 1 : 0
 
   manifest = yamldecode(templatefile("${path.module}/files/env-python-warm.yml", {
     fission_namespace = var.fission_namespace
@@ -40,7 +41,7 @@ resource "kubernetes_manifest" "env_python_warm" {
 }
 
 resource "kubernetes_manifest" "hello_world_package" {
-  count = var.fission_deploy_examples ? 1 : 0
+  count = (var.enable_crd_manifests && var.fission_deploy_examples) ? 1 : 0
 
   manifest = yamldecode(templatefile("${path.module}/files/hello-world-package.yml", {
     fission_namespace = var.fission_namespace
@@ -50,7 +51,7 @@ resource "kubernetes_manifest" "hello_world_package" {
 }
 
 resource "kubernetes_manifest" "hello_world_function" {
-  count = var.fission_deploy_examples ? 1 : 0
+  count = (var.enable_crd_manifests && var.fission_deploy_examples) ? 1 : 0
 
   manifest = yamldecode(templatefile("${path.module}/files/hello-world-function.yml", {
     fission_namespace = var.fission_namespace
@@ -60,7 +61,7 @@ resource "kubernetes_manifest" "hello_world_function" {
 }
 
 resource "kubernetes_manifest" "hello_world_httptrigger" {
-  count = var.fission_deploy_examples ? 1 : 0
+  count = (var.enable_crd_manifests && var.fission_deploy_examples) ? 1 : 0
 
   manifest = yamldecode(templatefile("${path.module}/files/hello-world-httptrigger.yml", {
     fission_namespace = var.fission_namespace
