@@ -5,19 +5,17 @@ resource "helm_release" "external_secrets" {
   namespace        = var.eso_namespace
   create_namespace = true
   version          = var.eso_version
+  wait             = false
+  timeout          = 600
 
   set {
     name  = "installCRDs"
     value = tostring(var.eso_install_crds)
   }
 
-  dynamic "set_sensitive" {
-    for_each = var.eso_aws_emulator_endpoint != "" ? [1] : []
-    content {
-      name  = "extraEnv"
-      value = yamlencode([{ name = "AWS_SECRETSMANAGER_ENDPOINT", value = var.eso_aws_emulator_endpoint }])
-    }
-  }
+  values = concat(
+    var.eso_aws_emulator_endpoint != "" ? [yamlencode({ extraEnv = [{ name = "AWS_SECRETSMANAGER_ENDPOINT", value = var.eso_aws_emulator_endpoint }] })] : []
+  )
 }
 
 resource "kubernetes_secret" "eso_aws_creds" {
@@ -39,7 +37,7 @@ resource "kubernetes_secret" "eso_aws_creds" {
 }
 
 resource "kubernetes_manifest" "cluster_secret_store" {
-  for_each = { for s in var.eso_aws_cluster_stores : s.name => s }
+  for_each = var.enable_crd_manifests ? { for s in var.eso_aws_cluster_stores : s.name => s } : {}
 
   manifest = yamldecode(templatefile("${path.module}/files/cluster-secret-store.yml", {
     name          = each.value.name

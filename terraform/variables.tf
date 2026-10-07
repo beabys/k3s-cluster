@@ -12,10 +12,13 @@ variable "traefik_namespace" {
   default = "traefik"
 }
 variable "traefik_chart" {
-  default = "traefik/traefik"
+  default = "traefik"
 }
 variable "traefik_repo_url" {
   default = "https://traefik.github.io/charts"
+}
+variable "traefik_version" {
+  default = "41.6.1"
 }
 variable "traefik_release_name" {
   default = "traefik"
@@ -35,10 +38,13 @@ variable "metallb_namespace" {
   default = "metallb-system"
 }
 variable "metallb_chart" {
-  default = "metallb/metallb"
+  default = "metallb"
 }
 variable "metallb_repo_url" {
   default = "https://metallb.github.io/metallb"
+}
+variable "metallb_version" {
+  default = "0.16.1"
 }
 variable "metallb_release_name" {
   default = "metallb"
@@ -52,7 +58,7 @@ variable "longhorn_namespace" {
   default = "longhorn-system"
 }
 variable "longhorn_chart" {
-  default = "longhorn/longhorn"
+  default = "longhorn"
 }
 variable "longhorn_repo_url" {
   default = "https://charts.longhorn.io"
@@ -75,10 +81,13 @@ variable "prometheus_namespace" {
   default = "monitoring"
 }
 variable "prometheus_chart" {
-  default = "prometheus-community/kube-prometheus-stack"
+  default = "kube-prometheus-stack"
 }
 variable "prometheus_repo_url" {
   default = "https://prometheus-community.github.io/helm-charts"
+}
+variable "prometheus_version" {
+  default = "91.9.0"
 }
 variable "prometheus_release_name" {
   default = "prometheus"
@@ -90,21 +99,84 @@ variable "alertmanager_domain" {
   default = null
 }
 
-# Loki
-variable "loki_namespace" {
-  default = "grafana-loki"
+# Elasticsearch
+variable "elasticsearch_namespace" {
+  default = "elasticsearch"
 }
-variable "loki_chart" {
-  default = "grafana/loki-stack"
+variable "elasticsearch_chart" {
+  default = "elasticsearch"
 }
-variable "loki_repo_url" {
+variable "elasticsearch_repo_url" {
+  default = "https://helm.elastic.co"
+}
+variable "elasticsearch_release_name" {
+  default = "elasticsearch"
+}
+variable "elasticsearch_version" {
+  default = "8.5.1"
+}
+variable "elasticsearch_storage_size" {
+  default = "10Gi"
+}
+
+# Jaeger
+variable "jaeger_namespace" {
+  default = "jaeger"
+}
+variable "jaeger_chart" {
+  default = "jaeger"
+}
+variable "jaeger_repo_url" {
+  default = "https://jaegertracing.github.io/helm-charts"
+}
+variable "jaeger_release_name" {
+  default = "jaeger"
+}
+variable "jaeger_version" {
+  default = "4.14.1"
+}
+variable "jaeger_domain" {
+  default = null
+}
+
+# OpenTelemetry Collector
+variable "otel_namespace" {
+  default = "observability"
+}
+variable "otel_chart" {
+  default = "opentelemetry-collector"
+}
+variable "otel_repo_url" {
+  default = "https://open-telemetry.github.io/opentelemetry-helm-charts"
+}
+variable "otel_release_name" {
+  default = "otel-collector"
+}
+variable "otel_version" {
+  default = "0.175.1"
+}
+
+# Grafana
+variable "grafana_namespace" {
+  default = "monitoring"
+}
+variable "grafana_chart" {
+  default = "grafana"
+}
+variable "grafana_repo_url" {
   default = "https://grafana.github.io/helm-charts"
 }
-variable "loki_release_name" {
-  default = "loki"
+variable "grafana_release_name" {
+  default = "grafana"
 }
-variable "loki_domain" {
+variable "grafana_version" {
+  default = "10.5.15"
+}
+variable "grafana_domain" {
   default = null
+}
+variable "grafana_admin_password" {
+  default = "admin"
 }
 
 # ArgoCD
@@ -112,10 +184,13 @@ variable "argocd_namespace" {
   default = "argo-cd"
 }
 variable "argocd_chart" {
-  default = "argo-cd/argo-cd"
+  default = "argo-cd"
 }
 variable "argocd_repo_url" {
   default = "https://argoproj.github.io/argo-helm"
+}
+variable "argocd_version" {
+  default = "10.9.6"
 }
 variable "argocd_release_name" {
   default = "argo-cd"
@@ -129,7 +204,7 @@ variable "fission_namespace" {
   default = "fission"
 }
 variable "fission_chart" {
-  default = "fission-charts/fission-all"
+  default = "fission-all"
 }
 variable "fission_repo_url" {
   default = "https://fission.github.io/fission-charts"
@@ -155,7 +230,7 @@ variable "eso_namespace" {
   default = "external-secrets"
 }
 variable "eso_chart" {
-  default = "external-secrets/external-secrets"
+  default = "external-secrets"
 }
 variable "eso_repo_url" {
   default = "https://charts.external-secrets.io"
@@ -197,4 +272,11 @@ variable "external_databases" {
     database_host          = string
   }))
   default = []
+}
+
+# CRD bootstrap gate — run first apply with false, then true after Helm installs CRDs
+variable "enable_crd_manifests" {
+  description = "Gate CRD-dependent manifests; run first apply with false, then true."
+  type        = bool
+  default     = false
 }

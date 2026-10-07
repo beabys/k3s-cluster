@@ -2,8 +2,11 @@ resource "helm_release" "prometheus" {
   name             = var.prometheus_release_name
   repository       = var.prometheus_repo_url
   chart            = var.prometheus_chart
+  version          = var.prometheus_version
   namespace        = var.prometheus_namespace
   create_namespace = true
+  wait             = false
+  timeout          = 600
 
   values = [
     file("${path.module}/files/prometheus-values.yaml")

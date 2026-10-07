@@ -14,8 +14,20 @@ output "prometheus" {
   value = module.prometheus.status
 }
 
-output "loki" {
-  value = module.loki.status
+output "elasticsearch" {
+  value = module.elasticsearch.status
+}
+
+output "jaeger" {
+  value = module.jaeger.status
+}
+
+output "otel" {
+  value = module.otel.status
+}
+
+output "grafana" {
+  value = module.grafana.status
 }
 
 output "argocd" {

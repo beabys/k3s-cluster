@@ -1,6 +1,0 @@
----
-- name: Deploy Loki log aggregation stack
-  hosts: localhost
-  connection: local
-  roles:
-    - loki

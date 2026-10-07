@@ -1,0 +1,53 @@
+clusterName: "elasticsearch"
+nodeGroup: "master"
+
+replicas: 1
+minimumMasterNodes: 1
+
+# Disable x-pack security for single-node dev/test setup
+esConfig:
+  elasticsearch.yml: |
+    xpack.security.enabled: false
+
+protocol: http
+httpPort: 9200
+transportPort: 9300
+
+esJavaOpts: "-Xms512m -Xmx512m"
+
+resources:
+  requests:
+    cpu: "100m"
+    memory: "1Gi"
+  limits:
+    cpu: "1000m"
+    memory: "1Gi"
+
+service:
+  enabled: true
+  type: ClusterIP
+
+persistence:
+  enabled: true
+
+volumeClaimTemplate:
+  accessModes: ["ReadWriteOnce"]
+  resources:
+    requests:
+      storage: "10Gi"
+  storageClassName: "longhorn"
+
+sysctlInitContainer:
+  enabled: true
+
+# Disable security features for dev/test
+secret:
+  enabled: false
+
+createCert: false
+
+# Inject dummy ELASTIC_PASSWORD to satisfy hardcoded readiness probe check
+# (security disabled, so actual auth not used)
+extraEnvs:
+  - name: ELASTIC_PASSWORD
+    value: "dummy"

@@ -1,0 +1,29 @@
+---
+- name: Install Longhorn prerequisites
+  ansible.builtin.apt:
+    name: "{{ node_prereqs_packages }}"
+    state: present
+    update_cache: true
+
+- name: Enable and start iscsid service
+  ansible.builtin.systemd:
+    name: iscsid
+    enabled: true
+    state: started
+
+- name: Persist kernel modules
+  ansible.builtin.copy:
+    content: |
+      iscsi_tcp
+      dm_crypt
+    dest: /etc/modules-load.d/longhorn.conf
+    mode: "0644"
+
+- name: Load kernel modules for Longhorn
+  ansible.builtin.shell:
+    cmd: |
+      set -o pipefail
+      lsmod | grep -q "^{{ item }} " || modprobe {{ item }}
+    executable: /bin/bash
+  loop: "{{ node_prereqs_kernel_modules }}"
+  changed_when: false

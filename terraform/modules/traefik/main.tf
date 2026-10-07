@@ -2,8 +2,11 @@ resource "helm_release" "traefik" {
   name             = var.traefik_release_name
   repository       = var.traefik_repo_url
   chart            = var.traefik_chart
+  version          = var.traefik_version
   namespace        = var.traefik_namespace
   create_namespace = true
+  wait             = false
+  timeout          = 300
 
   values = [
     templatefile("${path.module}/files/traefik-values.yaml", {
@@ -23,9 +26,15 @@ resource "kubernetes_secret" "dashboard_auth" {
   }
 
   depends_on = [helm_release.traefik]
+
+  lifecycle {
+    ignore_changes = [data]
+  }
 }
 
 resource "kubernetes_manifest" "dashboard_middleware" {
+  count = var.enable_crd_manifests ? 1 : 0
+
   manifest = yamldecode(templatefile("${path.module}/files/dashboard-crd.yml", {
     traefik_namespace = var.traefik_namespace
   }))

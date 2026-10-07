@@ -1,0 +1,84 @@
+mode: daemonset
+
+image:
+  repository: "ghcr.io/open-telemetry/opentelemetry-collector-releases/opentelemetry-collector-contrib"
+
+presets:
+  logsCollection:
+    enabled: true
+    includeCollectorLogs: false
+
+# Enable Service for daemonset so clients can address collector by DNS
+service:
+  enabled: true
+
+config:
+  receivers:
+    otlp:
+      protocols:
+        grpc:
+          endpoint: ${env:MY_POD_IP}:4317
+        http:
+          endpoint: ${env:MY_POD_IP}:4318
+
+  processors:
+    memory_limiter:
+      check_interval: 5s
+      limit_percentage: 80
+      spike_limit_percentage: 25
+    batch: {}
+    # Fix: elasticsearchexporter v0.161.0 hardcodes mapping.mode=otel (data streams).
+    # ES 8.5.1 lacks required templates → illegal_argument_exception.
+    # Override via scope attribute to use raw mode (respects logs_index).
+    transform/logs:
+      error_mode: ignore
+      log_statements:
+        - context: scope
+          statements:
+            - set(attributes["elastic.mapping.mode"], "raw")
+
+  exporters:
+    otlp:
+      endpoint: "jaeger.jaeger.svc.cluster.local:4317"
+      tls:
+        insecure: true
+    elasticsearch:
+      endpoints:
+        - "http://elasticsearch-master.elasticsearch.svc.cluster.local:9200"
+      logs_index: "app-logs"
+
+  extensions:
+    health_check:
+      endpoint: ${env:MY_POD_IP}:13133
+
+  service:
+    extensions: [health_check]
+    pipelines:
+      traces:
+        receivers: [otlp]
+        processors: [memory_limiter, batch]
+        exporters: [otlp]
+      logs:
+        receivers: [filelog]
+        processors: [memory_limiter, transform/logs, batch]
+        exporters: [elasticsearch]
+    telemetry:
+      resource:
+        k8s.namespace.name: "${env:OTEL_K8S_NAMESPACE}"
+        k8s.node.name: "${env:OTEL_K8S_NODE_NAME}"
+        k8s.pod.name: "${env:OTEL_K8S_POD_NAME}"
+      metrics:
+        readers:
+          - pull:
+              exporter:
+                prometheus:
+                  host: ${env:MY_POD_IP}
+                  port: 8888
+
+resources:
+  limits:
+    cpu: 200m
+    memory: 400Mi
+  requests:
+    cpu: 100m
+    memory: 200Mi

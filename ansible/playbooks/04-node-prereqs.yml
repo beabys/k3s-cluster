@@ -1,0 +1,18 @@
+---
+# Step 2.6: Node prerequisites for Longhorn storage
+# Depends on: K3s installed (Step 02)
+#
+# Usage:
+#   ansible-playbook playbooks/02.6-node-prereqs.yml
+#
+# Purpose:
+#   Install open-iscsi, nfs-common, enable iscsid, load kernel modules
+#   Required for Longhorn storage operator in Phase 2
+
+- name: Install Longhorn prerequisites on all nodes
+  hosts: masters:workers
+  become: true
+  vars_files:
+    - ../inventory/homelab/vars/local.yml
+  roles:
+    - node-prereqs

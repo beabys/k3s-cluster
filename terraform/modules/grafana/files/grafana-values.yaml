@@ -1,0 +1,40 @@
+persistence:
+  enabled: true
+  type: pvc
+  storageClassName: longhorn
+  accessModes:
+    - ReadWriteOnce
+  size: 5Gi
+
+resources:
+  limits:
+    cpu: 250m
+    memory: 256Mi
+  requests:
+    cpu: 50m
+    memory: 128Mi
+
+adminUser: admin
+
+datasources:
+  datasources.yaml:
+    apiVersion: 1
+    datasources:
+      - name: Elasticsearch
+        type: elasticsearch
+        url: http://elasticsearch-master.elasticsearch.svc.cluster.local:9200
+        access: proxy
+        jsonData:
+          esVersion: "8.0.0"
+          timeField: "@timestamp"
+          logMessageField: message
+          logLevelField: level
+      - name: Jaeger
+        type: jaeger
+        url: http://jaeger.jaeger.svc.cluster.local:16686
+        access: proxy
+      - name: Prometheus
+        type: prometheus
+        url: http://prometheus-operated.monitoring.svc.cluster.local:9090
+        access: proxy
+        isDefault: true

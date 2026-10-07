@@ -1,6 +1,6 @@
 # k3s-cluster
 
-Two-phase homelab K3s platform on Proxmox: Ansible bootstraps the cluster (external HAProxy + MariaDB + K3s), Terraform deploys platform services for ingress, storage, observability, logging, and GitOps.
+Two-phase homelab K3s platform on Proxmox: Ansible bootstraps the cluster (external HAProxy + MariaDB + K3s), Terraform deploys platform services for ingress, storage, observability, tracing, and GitOps.
 
 This repository is designed as a reproducible platform engineering lab: bootstrap the cluster, layer in core services, and operate it like a small self-hosted platform.
 
@@ -15,7 +15,7 @@ This project provisions and configures a K3s-based Kubernetes environment using 
 
 **Phase 2 — Services (Terraform, kubeconfig):**
 - Core platform services deployed via Terraform modules
-- Ingress, storage, observability, logging, GitOps, FaaS, secrets management
+- Ingress, storage, observability, tracing, GitOps, FaaS, secrets management
 
 **Fresh install vs existing cluster:**
 - **Fresh install:** Run Phase 1 (Ansible bootstrap) then Phase 2 (Terraform services)
@@ -30,18 +30,13 @@ The current setup uses:
 - **MetalLB** for load balancing in the homelab network.
 - **Longhorn** for distributed storage.
 - **Prometheus** for monitoring.
-- **Loki** for log aggregation.
+- **Elasticsearch** for log and trace storage.
+- **Jaeger** for distributed tracing.
+- **OpenTelemetry Collector** for telemetry pipeline.
+- **Grafana** for unified observability dashboards.
 - **ArgoCD** for GitOps-driven delivery.
 - **Fission** for FaaS.
 - **External Secrets Operator** for secrets management.
-
-## Goals
-
-- Build a repeatable self-hosted Kubernetes platform.
-- Automate cluster bootstrap with Ansible (Phase 1) and service deployment with Terraform (Phase 2).
-- Practice platform engineering and SRE workflows locally.
-- Provide a realistic environment for observability, storage, ingress, and deployment tooling.
-- Reduce manual setup by moving service installation into version-controlled Terraform modules and configuration.
 
 ## Architecture
 
@@ -64,7 +59,10 @@ Phase 2 — Services (Terraform, kubeconfig)
     ├── MetalLB (load balancer)
     ├── Longhorn (storage)
     ├── Prometheus (monitoring)
-    ├── Loki (logging)
+    ├── Elasticsearch (logs+traces)
+    ├── Jaeger (tracing)
+    ├── OpenTelemetry Collector
+    ├── Grafana
     ├── ArgoCD (GitOps)
     ├── External DB (EndpointSlices)
     ├── Fission (FaaS)
@@ -80,12 +78,13 @@ This separation keeps the datastore and load balancer outside the cluster while 
 Your local machine or CI runner should have:
 
 - `ansible-core >= 2.15`
+- `terraform >= 1.5`
 - `helm`
 - `kubectl`
 - Access to the required Ansible collections:
 
 ```bash
-ansible-galaxy collection install community.docker kubernetes.core
+ansible-galaxy collection install community.docker
 ```
 
 Your kubeconfig should point to the K3s cluster once it has been fetched.
@@ -99,64 +98,11 @@ The current documented environment expects:
 
 Adjust inventory and variables if your homelab layout changes.
 
-## Repository structure
-
-```text
-.
-├── ansible/                # Phase 1 bootstrap automation (Ansible)
-│   ├── inventory/          # Inventory and host variables
-│   ├── playbooks/          # Ordered playbooks for infra bootstrap
-│   └── ...
-├── terraform/              # Phase 2 service deployment (Terraform, primary path)
-│   ├── modules/           # One module per component (9 modules)
-│   ├── main.tf
-│   ├── variables.tf       # Single source of truth for all variables
-│   ├── terraform_example.tfvars
-│   └── Makefile
-├── legacy/                 # Previous manual installation guides and commands
-├── legacy_ansible.md       # Full Ansible-only deployment (legacy/manual path)
-├── CONFIGURATION.md        # Detailed configuration reference (two layers, all variables)
-├── .ansible-lint           # Linting rules
-└── README.md
-```
-
-## Deployment order
-
-The cluster is installed in two phases. **Phase 1** (Ansible bootstrap) runs over SSH for infrastructure setup. **Phase 2** (Terraform services) runs against the cluster through kubeconfig.
-
-### Phase 1 — Bootstrap (Ansible, SSH)
-
-**Optional for existing cluster:** If K3s is already running and kubeconfig is present, skip to Phase 2.
-
-| Step | Playbook | Purpose | Auth |
-|---|---|---|---|
-| 1 | `playbooks/01-infra.yml` | Deploy HAProxy and MariaDB on Docker in the LXC host | Root SSH |
-| 2 | `playbooks/02-k3s.yml` | Install K3s on master and worker nodes | SSH + sudo |
-| 2.5 | `playbooks/02.5-kubeconfig.yml` | Fetch kubeconfig to the control node (`~/.kube/config`) | SSH + sudo |
-
-**Note:** Step 2.5 is needed only when local kubeconfig is absent. Terraform `providers.tf` uses default `~/.kube/config` for helm+kubernetes providers.
-
-### Phase 2 — Services (Terraform, kubeconfig)
-
-Terraform deploys 9 modules (mapping to legacy Ansible playbooks 03-11):
-
-| Module | Legacy Playbook | Purpose |
-|---|---|---|
-| `traefik` | `03-traefik.yml` | Ingress controller |
-| `metallb` | `04-metallb.yml` | Load balancer |
-| `longhorn` | `05-longhorn.yml` | Distributed storage |
-| `prometheus` | `06-prometheus.yml` | Monitoring |
-| `loki` | `07-loki.yml` | Log aggregation |
-| `argocd` | `08-argocd.yml` | GitOps |
-| `external-db` | `09-external-db.yml` | External database Services/EndpointSlices |
-| `fission` | `10-fission.yml` | FaaS |
-| `external-secrets` | `11-external-secrets.yml` | External Secrets Operator + AWS provider |
-
 ## Setup
 
-Detailed configuration reference: [`CONFIGURATION.md`](./CONFIGURATION.md)
+Create local configuration files before running deployment.
 
-Create local configuration first:
+### Ansible configuration (Phase 1)
 
 ```bash
 cp ansible/inventory/homelab/vars/local.yml.example ansible/inventory/homelab/vars/local.yml
@@ -181,11 +127,41 @@ Finally edit `docker-host.yml` and set values as:
 - `docker_users`
 - `docker_host_ip`
 
-## Run the deployment
+### Terraform configuration (Phase 2)
 
-### Phase 1 — Bootstrap (fresh install only)
+```bash
+cp terraform/terraform_example.tfvars terraform/terraform.tfvars
+```
 
-**Skip this phase if cluster already running.** Run from `ansible/` directory:
+Edit `terraform.tfvars` with your values:
+
+- `domain`, `metallb_ip_pool_range`
+- domains: `traefik_dashboard_domain`, `longhorn_domain`, `prometheus_domain`, `alertmanager_domain`, `jaeger_domain`, `grafana_domain`, `argocd_domain`, `fission_domain`
+- secrets: `traefik_dashboard_password`, `grafana_admin_password`
+- `eso_aws_*` (optional — see External Secrets Operator section)
+
+Detailed configuration reference: [`CONFIGURATION.md`](./CONFIGURATION.md)
+
+## Deployment order
+
+The cluster is installed in two phases. **Phase 1** (Ansible bootstrap) runs over SSH for infrastructure setup. **Phase 2** (Terraform services) runs against the cluster through kubeconfig.
+
+### Phase 1 — Bootstrap (Ansible, SSH)
+
+**Optional for existing cluster:** If K3s is already running and kubeconfig is present, skip to Phase 2.
+
+| Step | Playbook | Purpose | Auth |
+|---|---|---|---|
+| 1 | `playbooks/01-infra.yml` | Deploy HAProxy and MariaDB on Docker in the LXC host | Root SSH |
+| 2 | `playbooks/02-k3s.yml` | Install K3s on master and worker nodes | SSH + sudo |
+| 3 | `playbooks/03-kubeconfig.yml` | Fetch kubeconfig to the control node (`~/.kube/config`) | SSH + sudo |
+| 4 | `playbooks/04-node-prereqs.yml` | Install Longhorn prerequisites (open-iscsi, nfs-common, kernel modules) on all nodes | SSH + sudo |
+
+**Note:** Step 3 is needed only when local kubeconfig is absent. Terraform `providers.tf` uses default `~/.kube/config` for helm+kubernetes providers.
+
+**Note:** Step 4 installs Longhorn prerequisites (open-iscsi, nfs-common, kernel modules) required for Longhorn storage operator in Phase 2. Without this, longhorn-manager fails with `nsenter: failed to execute iscsiadm: No such file or directory`.
+
+Run from `ansible/` directory:
 
 ```bash
 # Step 1: Deploy HAProxy + MariaDB on LXC
@@ -194,30 +170,167 @@ ansible-playbook playbooks/01-infra.yml
 # Step 2: Install K3s on masters + workers
 ansible-playbook playbooks/02-k3s.yml
 
-# Step 2.5: Fetch kubeconfig to control node (optional if kubeconfig already present)
-ansible-playbook playbooks/02.5-kubeconfig.yml
+# Step 3: Fetch kubeconfig to control node (optional if kubeconfig already present)
+ansible-playbook playbooks/03-kubeconfig.yml
+
+# Step 4: Install Longhorn prerequisites on all nodes (required for Phase 2 Longhorn PVCs)
+ansible-playbook playbooks/04-node-prereqs.yml
 ```
 
 If you are not using values from `local.yml`, add `--ask-become-pass` where needed.
 
-### Phase 2 — Services (primary path)
+### Phase 2 — Services (Terraform, kubeconfig)
 
-From `terraform/` directory:
+Terraform deploys 12 modules:
+
+| Module | Purpose |
+|---|---|
+| `traefik` | Ingress controller |
+| `metallb` | Load balancer |
+| `longhorn` | Distributed storage |
+| `prometheus` | Monitoring |
+| `elasticsearch` | Log and trace storage |
+| `jaeger` | Distributed tracing |
+| `otel` | OpenTelemetry Collector |
+| `grafana` | Unified observability dashboards |
+| `argocd` | GitOps |
+| `external-db` | External database Services/EndpointSlices |
+| `fission` | FaaS |
+| `external-secrets` | External Secrets Operator + AWS provider |
+
+**Two-pass apply (required):**
+
+Phase 2 uses a two-pass deployment to handle CRD dependencies. Some modules (Fission, ESO) install CRDs that other resources depend on. The first pass installs charts with CRDs disabled, the second pass enables them.
+
+Run from `terraform/` directory:
 
 ```bash
 # Initialize Terraform
-cd terraform && terraform init
+terraform init
+
+# Validate configuration
+terraform validate
 
 # Preview changes
 make plan
 
-# Apply (requires kubeconfig pointing to cluster)
+# Pass 1: Install all charts with CRDs disabled
+make bootstrap
+
+# Pass 2: Enable CRDs and apply remaining resources
 make apply
 ```
 
-### Legacy Ansible path (manual, not recommended)
+**Why two passes?** `make bootstrap` sets `enable_crd_manifests=false` for Helm releases, installing base charts without CRDs. `make apply` sets `enable_crd_manifests=true`, enabling CRD installation and applying CRD-dependent resources (Fission CRDs, ESO ClusterSecretStore). Running `make bootstrap` alone after a full apply will remove pass-2 CRDs — always use `make apply` for subsequent runs.
 
-Full Ansible-only deployment (playbooks 01-11) documented in [`legacy_ansible.md`](./legacy_ansible.md). This path is preserved for reference but **Terraform is the primary path for services**.
+## Verify
+
+After Phase 2 completes, verify cluster state:
+
+```bash
+# Check nodes
+kubectl get nodes
+
+# Check all pods
+kubectl get pods -A
+
+# Check ingress
+kubectl get ingress -A
+```
+
+Access UIs (replace `<domain>` with your configured domain):
+
+- Grafana: `https://grafana.<domain>`
+- Jaeger: `https://jaeger.<domain>`
+- Traefik Dashboard: `https://traefik.<domain>`
+- ArgoCD: `https://argocd.<domain>`
+
+## Troubleshooting / failure scenarios
+
+Common failures, symptoms, and fixes.
+
+### `helm_release` "could not download chart ... not found"
+
+**Symptom:** `terraform apply` fails with chart-not-found errors.
+
+**Fix:** When `repository` is set, `chart` must be the chart name only (e.g. `"traefik"`, not `"traefik/traefik"`). Also check `terraform.tfvars` — if you have stale `*_chart` or `*_version` overrides, delete them. Defaults in `variables.tf` are correct.
+
+### `Kubernetes cluster unreachable: no configuration`
+
+**Symptom:** Helm or Kubernetes provider cannot connect.
+
+**Fix:** Ensure `providers.tf` has `kubernetes { config_path = "~/.kube/config" }` and `helm { kubernetes { config_path = "~/.kube/config" } }`. Run `03-kubeconfig.yml` to fetch kubeconfig if missing.
+
+### `API did not recognize GroupVersionKind ... CRD may not be installed`
+
+**Symptom:** Resources referencing Fission or ESO CRDs fail to apply.
+
+**Fix:** Use the two-pass flow: `make bootstrap` (CRDs disabled) then `make apply` (CRDs enabled). Do NOT run `make bootstrap` alone after a full apply — it removes pass-2 CRDs.
+
+### Helm `context deadline exceeded`
+
+**Symptom:** `terraform apply` times out waiting for release readiness.
+
+**Fix:** Releases use `wait=false` — helm does not block on pod readiness. Check pods directly with `kubectl get pods -n <namespace>`. Do not confuse helm wait timeout with actual readiness.
+
+### Traefik Service `EXTERNAL-IP <pending>`
+
+**Symptom:** Traefik LoadBalancer Service stuck pending.
+
+**Fix:** Normal until pass 2 creates the MetalLB `IPAddressPool`. After `make apply`, MetalLB assigns the IP automatically.
+
+### Longhorn `longhorn-manager` fatal `iscsiadm: No such file or directory` / PVCs stuck Pending
+
+**Symptom:** longhorn-manager pods crash with iscsiadm errors. PVCs remain Pending.
+
+**Fix:** Run `04-node-prereqs.yml` (installs open-iscsi, nfs-common, kernel modules), then restart the daemonset:
+
+```bash
+kubectl -n longhorn-system rollout restart ds/longhorn-manager
+```
+
+### Elasticsearch `0/1` readiness `ELASTIC_PASSWORD variable is missing`
+
+**Symptom:** Elasticsearch pod fails readiness check.
+
+**Fix:** Values already set a dummy env var for security-off mode. If you changed values, keep security disabled and preserve the probe workaround in the helm values.
+
+### Jaeger `CrashLoopBackOff` `connection refused 9200`
+
+**Symptom:** Jaeger pod crashes trying to connect to Elasticsearch.
+
+**Fix:** Elasticsearch not Ready yet. Wait for ES pod to become Ready (`kubectl get pods -n elasticsearch`), then Jaeger recovers automatically. Or delete the Jaeger pod to force restart.
+
+### Traces not in Jaeger
+
+**Symptom:** Jaeger UI shows no traces.
+
+**Fix:** OTel collector Service must be enabled. In daemonset mode, ensure `service.enabled: true` in the OTel collector values.
+
+### Logs not in Grafana/ES `400 illegal_argument_exception`
+
+**Symptom:** Grafana logs panel shows Elasticsearch errors.
+
+**Fix:** Exporter mapping mode must be `raw` (use transform processor to restructure logs before sending to ES).
+
+### Reset/cleanup a botched Phase 2
+
+**Symptom:** Terraform state inconsistent, resources half-deployed.
+
+**Fix:** Uninstall individual releases and remove from state:
+
+```bash
+helm uninstall <release> -n <namespace>
+terraform state rm <module.resource>
+```
+
+Then re-apply. For a full reset on a fresh-ish cluster: `terraform destroy` then re-run Phase 2.
+
+### `terraform plan` not idempotent / secret churn
+
+**Symptom:** Traefik dashboard password secret shows changes on every plan.
+
+**Fix:** The password resource uses `ignore_changes` lifecycle rule to prevent churn. To rotate the password, edit the Kubernetes secret manually — do not change it in `terraform.tfvars`.
 
 ## External Secrets Operator
 
@@ -263,29 +376,21 @@ The current cluster exposes the following service endpoints:
 | Longhorn UI | `longhorn.your.domain` | `longhorn-system` |
 | Prometheus | `prometheus.your.domain` | `monitoring` |
 | Alertmanager | `alertmanager.your.domain` | `monitoring` |
-| Loki | `loki.your.domain` | `grafana-loki` |
+| Jaeger | `jaeger.your.domain` | `jaeger` |
+| Grafana | `grafana.your.domain` | `monitoring` |
 | ArgoCD | `argocd.your.domain` | `argo-cd` |
 | Fission Functions | `functions.your.domain` | `fission` |
 
 Sample Fission function is reachable at `http://functions.your.domain/hello` via an HTTPTrigger (Fission v1.27 routes functions only through HTTPTriggers; the `/fission-function/*` URL is internal-only). DNS and the external reverse proxy for `functions.your.domain` must point to the cluster Traefik entrypoint — that mapping lives outside this repo (homelab router).
 
-## Operational focus
-
-This repository is not only about installation. It is also a place to practice platform operations such as:
-
-- Cluster bootstrap and re-bootstrap.
-- Ingress and load-balancer setup.
-- Persistent storage management.
-- Monitoring and log collection.
-- GitOps-based cluster application delivery.
-- Moving from manual steps to repeatable automation.
-
 ## Observability and reliability
 
-The current stack already includes two important operational pillars:
+The current stack includes a full observability pipeline:
 
-- **Prometheus** for cluster and service monitoring.
-- **Loki** for centralized log aggregation.
+- **Prometheus** for cluster and service monitoring (metrics).
+- **Elasticsearch** for centralized log storage (logs ingested via OpenTelemetry Collector).
+- **Jaeger** for distributed tracing.
+- **Grafana** as the unified dashboard for metrics, logs, and traces.
 
 That makes this repository a strong base for expanding into SRE-oriented practices such as:
 
@@ -294,64 +399,62 @@ That makes this repository a strong base for expanding into SRE-oriented practic
 - Incident runbooks.
 - Failure testing and recovery documentation.
 
-## Terraform (Primary service path)
+## Terraform reference
 
-Terraform is the **primary path** for deploying platform services (Phase 2). It deploys the same 9 components as legacy Ansible playbooks 03-11, managed declaratively via Helm and Kubernetes providers.
-
-### Prerequisites
-
-```bash
-terraform >= 1.5
-helm
-kubectl
-```
-
-### Setup (3 steps)
-
-```bash
-# 1. Copy example vars
-cp terraform/terraform_example.tfvars terraform/terraform.tfvars
-
-# 2. Edit terraform.tfvars with your values:
-#    - domain, metallb_ip_pool_range, all *._domain variables
-#    - traefik_dashboard_password
-#    - eso_aws_* if using External Secrets with AWS
-
-# 3. Initialize
-cd terraform && terraform init
-```
-
-### Usage
-
-```bash
-cd terraform
-
-# Preview changes
-make plan
-
-# Apply (requires kubeconfig pointing to cluster)
-make apply
-
-# Destroy
-make destroy
-```
+Terraform is the **primary path** for deploying platform services (Phase 2). It deploys 12 components managed declaratively via Helm and Kubernetes providers.
 
 ### Files
 
 - `terraform/terraform.tfvars` — personal values, gitignored, contains secrets
 - `terraform/terraform_example.tfvars` — committed template with placeholder values
-- `terraform/secrets.tfvars` — no longer used (secrets in terraform.tfvars now)
+- `terraform/variables.tf` — single source of truth for all variables
+- `terraform/main.tf` — module composition
+- `terraform/Makefile` — convenience targets (plan, apply, destroy)
 
 ### Migration note
 
-- Terraform deploys the same 9 components as Ansible playbooks 03-11
+- Terraform deploys 12 components declaratively
 - MetalLB restart Traefik automatically after apply
 - Fission CRDs applied via local-exec (kubectl --server-side)
 - ESO ClusterSecretStore created only when `eso_aws_cluster_stores` is non-empty
 
-## Legacy notes
+## Repository structure
 
-Older manual setup commands and guides are preserved in [`legacy/`](./legacy). Full Ansible-only deployment (all playbooks 01-11) documented in [`legacy_ansible.md`](./legacy_ansible.md) — **legacy/manual path, no longer recommended**.
+```text
+.
+├── ansible/                # Phase 1 bootstrap automation (Ansible)
+│   ├── inventory/          # Inventory and host variables
+│   ├── playbooks/          # Ordered playbooks for infra bootstrap
+│   └── ...
+├── terraform/              # Phase 2 service deployment (Terraform, primary path)
+│   ├── modules/           # One module per component (12 modules)
+│   ├── main.tf
+│   ├── variables.tf       # Single source of truth for all variables
+│   ├── terraform_example.tfvars
+│   └── Makefile
+├── CONFIGURATION.md        # Detailed configuration reference (two layers, all variables)
+├── .ansible-lint           # Linting rules
+└── README.md
+```
+
+## Goals
+
+- Build a repeatable self-hosted Kubernetes platform.
+- Automate cluster bootstrap with Ansible (Phase 1) and service deployment with Terraform (Phase 2).
+- Practice platform engineering and SRE workflows locally.
+- Provide a realistic environment for observability, storage, ingress, and deployment tooling.
+- Reduce manual setup by moving service installation into version-controlled Terraform modules and configuration.
+
+## Operational focus
+
+This repository is not only about installation. It is also a place to practice platform operations such as:
+
+- Cluster bootstrap and re-bootstrap.
+- Ingress and load-balancer setup.
+- Persistent storage management.
+- Monitoring, log collection, and distributed tracing.
+- GitOps-based cluster application delivery.
+- Moving from manual steps to repeatable automation.
 
 ## Why this project matters
 
@@ -359,7 +462,7 @@ This repository demonstrates:
 
 - Practical Kubernetes platform work beyond local single-node experimentation.
 - Ansible for infrastructure bootstrap and Terraform for platform service deployment.
-- Integration of ingress, storage, monitoring, logging, and GitOps in one environment.
+- Integration of ingress, storage, monitoring, tracing, and GitOps in one environment.
 - A solid self-hosted lab for building SRE and platform engineering experience.
 
 ## Roadmap

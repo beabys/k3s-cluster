@@ -32,32 +32,11 @@ check "Syntax check (01-infra.yml)" \
 check "Syntax check (02-k3s.yml)" \
     "ansible-playbook --syntax-check playbooks/02-k3s.yml"
 
-check "Syntax check (02.5-kubeconfig.yml)" \
-    "ansible-playbook --syntax-check playbooks/02.5-kubeconfig.yml"
+check "Syntax check (03-kubeconfig.yml)" \
+    "ansible-playbook --syntax-check playbooks/03-kubeconfig.yml"
 
-check "Syntax check (03-traefik.yml)" \
-    "ansible-playbook --syntax-check playbooks/03-traefik.yml"
-
-check "Syntax check (04-metallb.yml)" \
-    "ansible-playbook --syntax-check playbooks/04-metallb.yml"
-
-check "Syntax check (05-longhorn.yml)" \
-    "ansible-playbook --syntax-check playbooks/05-longhorn.yml"
-
-check "Syntax check (06-prometheus.yml)" \
-    "ansible-playbook --syntax-check playbooks/06-prometheus.yml"
-
-check "Syntax check (07-loki.yml)" \
-    "ansible-playbook --syntax-check playbooks/07-loki.yml"
-
-check "Syntax check (08-argocd.yml)" \
-    "ansible-playbook --syntax-check playbooks/08-argocd.yml"
-
-check "Syntax check (09-external-db.yml)" \
-    "ansible-playbook --syntax-check playbooks/09-external-db.yml"
-
-check "Syntax check (10-fission.yml)" \
-    "ansible-playbook --syntax-check playbooks/10-fission.yml"
+check "Syntax check (04-node-prereqs.yml)" \
+    "ansible-playbook --syntax-check playbooks/04-node-prereqs.yml"
 
 check "Ansible-lint" \
     "ansible-lint --version && ansible-lint ."
