@@ -45,3 +45,7 @@ output "fission" {
 output "external_secrets" {
   value = module.external_secrets.status
 }
+
+output "registry_secrets" {
+  value = module.registry_secrets.status
+}

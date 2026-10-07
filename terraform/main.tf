@@ -174,3 +174,10 @@ module "external_secrets" {
   eso_aws_cluster_stores    = var.eso_aws_cluster_stores
   enable_crd_manifests      = var.enable_crd_manifests
 }
+
+module "registry_secrets" {
+  source = "./modules/registry-secrets"
+
+  registry_secrets  = var.registry_secrets
+  manage_namespaces = var.registry_manage_namespaces
+}

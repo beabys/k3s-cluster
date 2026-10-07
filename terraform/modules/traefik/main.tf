@@ -22,7 +22,7 @@ resource "kubernetes_secret" "dashboard_auth" {
   }
   type = "Opaque"
   data = {
-    users = base64encode("${var.traefik_dashboard_user}:${bcrypt(var.traefik_dashboard_password)}")
+    users = "${var.traefik_dashboard_user}:${bcrypt(var.traefik_dashboard_password)}"
   }
 
   depends_on = [helm_release.traefik]

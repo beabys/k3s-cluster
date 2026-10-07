@@ -422,6 +422,28 @@ Then re-apply. For a full reset on a fresh-ish cluster: `terraform destroy` then
 
 **Fix:** The password resource uses `ignore_changes` lifecycle rule to prevent churn. To rotate the password, edit the Kubernetes secret manually — do not change it in `terraform.tfvars`.
 
+### Private registry auth (per-namespace image-pull secrets)
+
+**Symptom:** Pods fail with `ErrImagePull ... no basic auth credentials` or `FailedToRetrieveImagePullSecret` when pulling from a private registry (e.g. `registry.example.com`).
+
+**Fix (Terraform-managed, namespace-level):** Add a `registry_secrets` entry in `terraform/terraform.tfvars` (gitignored):
+
+```hcl
+registry_secrets = [
+  {
+    secret_name = "registry-name"
+    server      = "registry.example.com"
+    username    = "user"
+    password    = "<token>"
+    namespaces  = ["ns-one", "ns-two"]
+  }
+]
+```
+
+Then `terraform apply`. The module creates a `kubernetes.io/dockerconfigjson` secret in each listed namespace (and the namespaces themselves if `registry_manage_namespaces = true`). Pods reference it via `imagePullSecrets: registry-name` in their spec.
+
+**Rotation:** edit `terraform.tfvars` and re-apply.
+
 ## External Secrets Operator
 
 The Terraform module `external-secrets` installs the External Secrets Operator (ESO, chart `external-secrets/external-secrets`, namespace `external-secrets`) and exposes the **AWS provider connection only** — a credentials Secret `eso-aws-creds` plus one `ClusterSecretStore` per `eso_aws_cluster_stores` entry. This repo does **not** create consumer namespaces, `ExternalSecret`s, or demo resources; those belong in the consuming service repos.

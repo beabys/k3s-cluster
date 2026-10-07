@@ -3,6 +3,7 @@ ingressRoute:
     enabled: true
     entryPoints:
       - web
+      - websecure
     matchRule: Host(`${traefik_dashboard_domain}`) && (PathPrefix(`/api`) || PathPrefix(`/dashboard`))
     middlewares:
       - name: traefik-dashboard-auth
