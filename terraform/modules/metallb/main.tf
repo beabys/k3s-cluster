@@ -5,13 +5,13 @@ resource "helm_release" "metallb" {
   version          = var.metallb_version
   namespace        = var.metallb_namespace
   create_namespace = true
-  wait             = false
-  timeout          = 600
+  wait             = true
+  timeout          = 180
 }
 
 resource "terraform_data" "metallb_webhook_ready" {
   provisioner "local-exec" {
-    command = "kubectl wait --namespace ${var.metallb_namespace} --for=condition=ready pod --selector=app.kubernetes.io/component=controller --timeout=90s"
+    command = "kubectl -n ${var.metallb_namespace} rollout status deployment/${var.metallb_release_name}-controller --timeout=180s"
   }
 
   depends_on = [helm_release.metallb]

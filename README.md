@@ -200,7 +200,11 @@ Terraform deploys 12 modules:
 
 **Two-pass apply (required):**
 
-Phase 2 uses a two-pass deployment to handle CRD dependencies. Some modules (Fission, ESO) install CRDs that other resources depend on. The first pass installs charts with CRDs disabled, the second pass enables them.
+Phase 2 uses a two-pass deployment to handle CRD dependencies. Helm charts (Traefik, kube-prometheus-stack, external-secrets, metallb, Fission) install their own CRDs as part of the release; Fission CRDs are also applied via a `local-exec`. However, Terraform's `kubernetes_manifest` resource resolves each manifest's GVK at **plan time**, so any `kubernetes_manifest` that depends on those CRDs (Middleware, IPAddressPool, L2Advertisement, ServiceMonitor, ClusterSecretStore, Fission CRs) cannot be planned until the CRDs exist. Pass 1 installs the Helm releases (which bring their CRDs) plus core ingresses/secrets, with CRD-dependent `kubernetes_manifest` resources gated off. Pass 2 enables those manifests now that the CRDs are present.
+
+**Fresh cluster — order matters:**
+
+On a fresh cluster (no CRDs installed yet), you **must** run `make bootstrap` (pass 1) **before** `make plan` or `make apply`. Both `make plan` and `make apply` set `enable_crd_manifests=true` and expect CRDs to already exist — running them before pass 1 will fail with `API did not recognize GroupVersionKind` errors.
 
 Run from `terraform/` directory:
 
@@ -211,17 +215,79 @@ terraform init
 # Validate configuration
 terraform validate
 
-# Preview changes
-make plan
-
-# Pass 1: Install all charts with CRDs disabled
+# Pass 1 (REQUIRED FIRST on fresh cluster): install all Helm releases (which bring their CRDs) + core ingresses/secrets; CRD-dependent manifests gated off
 make bootstrap
 
-# Pass 2: Enable CRDs and apply remaining resources
+# Preview pass 2 (CRD manifests) — only valid AFTER make bootstrap
+make plan
+
+# Pass 2: enable CRDs and apply remaining resources (Middleware, IPAddressPool, ServiceMonitor, ClusterSecretStore, Fission CRs)
 make apply
 ```
 
-**Why two passes?** `make bootstrap` sets `enable_crd_manifests=false` for Helm releases, installing base charts without CRDs. `make apply` sets `enable_crd_manifests=true`, enabling CRD installation and applying CRD-dependent resources (Fission CRDs, ESO ClusterSecretStore). Running `make bootstrap` alone after a full apply will remove pass-2 CRDs — always use `make apply` for subsequent runs.
+**Preview pass 1 before applying?** Use `make plan-bootstrap` (sets `enable_crd_manifests=false`). Do **not** use `make plan` to preview pass 1 on a fresh cluster — it will fail because CRDs are not yet installed.
+
+**Why two passes?** `kubernetes_manifest` resolves each manifest's GVK at plan time — before CRDs exist, plan fails with `API did not recognize GroupVersionKind`. `make bootstrap` sets `enable_crd_manifests=false`, which gates OFF our CRD-dependent `kubernetes_manifest` resources (Middleware, IPAddressPool, L2Advertisement, ServiceMonitor, ClusterSecretStore, Fission CRs) while still installing the Helm releases themselves — and those charts install their own CRDs (traefik.io, monitoring.coreos.com, external-secrets.io, metallb.io, plus Fission CRDs via local-exec). `make apply` sets `enable_crd_manifests=true`, enabling the CRD-dependent manifests now that the CRDs exist. Running `make bootstrap` alone after a full apply will remove pass-2 resources — always use `make apply` for subsequent runs.
+
+## Operating an existing cluster
+
+Once the cluster is fully deployed (Phase 1 done, Phase 2 applied at least once), day-to-day changes use the normal Terraform flow. **Do not re-run Phase 1 (Ansible bootstrap)** unless you are rebuilding the cluster from scratch.
+
+### Routine plan/apply
+
+```bash
+# Only needed if you added/changed a module or Terraform variable
+terraform init
+
+make plan
+make apply
+```
+
+Both `make plan` and `make apply` set `enable_crd_manifests=true`. CRDs already exist on an applied cluster, so this is the correct and only flow.
+
+**Warning:** Never run `make bootstrap` alone on a fully-applied cluster. `make bootstrap` sets `enable_crd_manifests=false`, which will **destroy** the pass-2 resources (Middleware, IPAddressPool, L2Advertisement, ServiceMonitor, ClusterSecretStore, Fission CRs). The two-pass flow (`make bootstrap` → `make apply`) is for **fresh clusters only**.
+
+### Adding a new service (module)
+
+1. Create `terraform/modules/<svc>/` with `main.tf`, `variables.tf`, `outputs.tf`, and a `files/` directory for values — follow the pattern of an existing module.
+2. Wire it up:
+   - Add a `module "<svc>" { ... }` block (with appropriate `depends_on`) in `terraform/main.tf`.
+   - Declare its variables in `terraform/variables.tf`.
+   - Add example values in `terraform/terraform_example.tfvars` (and your private `terraform/terraform.tfvars`).
+   - Add any useful outputs in `terraform/outputs.tf`.
+3. Initialize and apply:
+   ```bash
+   terraform init   # new module
+   make plan
+   make apply
+   ```
+4. If the service has host prerequisites (storage packages, kernel modules, sysctls), extend `ansible/playbooks/04-node-prereqs.yml` and run it against the nodes.
+5. Update this README and [`CONFIGURATION.md`](./CONFIGURATION.md) to document the new module and its variables.
+
+### Changing a service
+
+Edit the relevant `terraform/modules/<svc>/files/*-values.yaml` (and any variables in `terraform/variables.tf` / `terraform/terraform.tfvars`), then:
+
+```bash
+make plan
+make apply
+```
+
+### Removing a service
+
+1. Remove the `module "<svc>" { ... }` block from `terraform/main.tf`.
+2. Remove its variables from `terraform/variables.tf`, `terraform/terraform.tfvars`, and `terraform/terraform_example.tfvars`.
+3. Remove its outputs from `terraform/outputs.tf`.
+4. Delete the `terraform/modules/<svc>/` directory.
+5. Run:
+   ```bash
+   make plan    # confirm only that service's resources are being destroyed
+   make apply
+   ```
+
+### Note
+
+Changing a fresh cluster later is normal `make plan` / `make apply`. The two-pass bootstrap flow is not re-run after the initial deploy.
 
 ## Verify
 
@@ -265,7 +331,10 @@ Common failures, symptoms, and fixes.
 
 **Symptom:** Resources referencing Fission or ESO CRDs fail to apply.
 
-**Fix:** Use the two-pass flow: `make bootstrap` (CRDs disabled) then `make apply` (CRDs enabled). Do NOT run `make bootstrap` alone after a full apply — it removes pass-2 CRDs.
+**Fix:**
+
+- **Fresh cluster (first deploy):** Run `make bootstrap` first (pass 1 installs Helm releases + CRDs). `make plan` / `make apply` before pass 1 is **expected to fail** — they set `enable_crd_manifests=true` and need CRDs present. To preview pass 1, use `make plan-bootstrap`.
+- **After a prior full apply:** Use the two-pass flow: `make bootstrap` (CRD-dependent manifests gated off; Helm charts still install their own CRDs) then `make apply` (CRD-dependent manifests enabled). Do NOT run `make bootstrap` alone after a full apply — it removes pass-2 resources.
 
 ### Helm `context deadline exceeded`
 
