@@ -46,28 +46,49 @@ At a high level, the cluster is composed of:
 - Multiple **Ubuntu VMs** acting as K3s nodes.
 - A control node running Ansible, Terraform, Helm, and kubectl.
 
-```text
-Phase 1 — Bootstrap (Ansible, SSH)
-├── LXC: HAProxy + MariaDB (Docker)
-└── K3s VMs
-    ├── master nodes
-    └── worker nodes
+```mermaid
+flowchart TB
+  user([User / Browser]) --> rp["External reverse proxy + DNS"]
+  rp --> lb["MetalLB<br/>10.27.10.60"]
+  lb --> traefik["Traefik Ingress"]
 
-Phase 2 — Services (Terraform, kubeconfig)
-└── K3s cluster
-    ├── Traefik (ingress)
-    ├── MetalLB (load balancer)
-    ├── Longhorn (storage)
-    ├── Prometheus (monitoring)
-    ├── Elasticsearch (logs+traces)
-    ├── Jaeger (tracing)
-    ├── OpenTelemetry Collector
-    ├── Grafana
-    ├── ArgoCD (GitOps)
-    ├── External DB (EndpointSlices)
-    ├── Fission (FaaS)
-    └── External Secrets Operator
+  subgraph cluster["K3s cluster (Phase 2 — Terraform)"]
+    traefik --> obs
+    traefik --> platform
+    subgraph obs["Observability"]
+      otel["OpenTelemetry Collector (DaemonSet)"]
+      jaeger["Jaeger"]
+      es["Elasticsearch"]
+      grafana["Grafana"]
+    end
+    subgraph platform["Platform"]
+      prometheus["Prometheus / Alertmanager"]
+      longhorn["Longhorn"]
+      argocd["ArgoCD"]
+      fission["Fission"]
+      eso["External Secrets Operator"]
+    end
+  end
+
+  apps(["Workloads / apps"]) -->|"OTLP traces"| otel
+  apps -->|"pod logs"| otel
+  otel -->|"traces OTLP"| jaeger
+  otel -->|"logs index app-logs"| es
+  jaeger -->|"spans + services"| es
+  grafana --> es
+  grafana --> jaeger
+  grafana --> prometheus
+  longhorn --> pv[("Persistent volumes")]
+
+  subgraph ext["External infrastructure (Phase 1 — Ansible)"]
+    haproxy["HAProxy"]
+    mariadb[("MariaDB")]
+  end
+  cluster -.->|"K3s datastore"| haproxy
+  haproxy --> mariadb
 ```
+
+Phase 1 = Ansible bootstrap (HAProxy + MariaDB on LXC, K3s nodes); Phase 2 = Terraform services; observability pipeline = apps → OTel Collector → {Jaeger→ES (traces), ES (logs)} → Grafana (+ Prometheus).
 
 This separation keeps the datastore and load balancer outside the cluster while letting K3s focus on workload orchestration. Terraform manages services declaratively via Helm and Kubernetes providers.
 
@@ -533,18 +554,6 @@ This repository demonstrates:
 - Ansible for infrastructure bootstrap and Terraform for platform service deployment.
 - Integration of ingress, storage, monitoring, tracing, and GitOps in one environment.
 - A solid self-hosted lab for building SRE and platform engineering experience.
-
-## Roadmap
-
-Planned or sensible next improvements include:
-
-- [ ] Add architecture diagrams.
-- [ ] Document inventory layout and host roles in more detail.
-- [ ] Add runbooks for common operations and failures.
-- [ ] Add backup and restore procedures for MariaDB, Longhorn, and cluster state.
-- [ ] Add alert rules and example SLOs for hosted workloads.
-- [ ] Add CI checks for playbook validation and linting.
-- [ ] Document upgrade procedures for K3s and platform services.
 
 ## Related projects
 
