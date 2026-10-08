@@ -340,11 +340,25 @@ eso_aws_cluster_stores    = []
 # External Databases — empty = no Services/EndpointSlices created
 external_databases = []
 
+# Registry pull secrets — per-namespace dockerconfigjson image-pull secrets.
+# Replaces node-level k3s registries.yaml auth. Empty = no secrets created.
+# registry_secrets = [
+#   {
+#      secret_name = "registry-name"
+#      server      = "registry.example.com"
+#      username    = "user"
+#      password    = "<token>"
+#      namespaces  = ["ns-one", "ns-two"]
+#   }
+# ]
+registry_secrets           = []
+registry_manage_namespaces = true
+
 # ── Secrets ──
 traefik_dashboard_password = "CHANGE_ME"
 ```
 
-### Variable reference (74 variables in `variables.tf`)
+### Variable reference (76 variables in `variables.tf`)
 
 #### Domain
 
@@ -485,6 +499,27 @@ traefik_dashboard_password = "CHANGE_ME"
 |----------|---------|---------|
 | `external_databases` | `[]` | List of external DBs to expose as in-cluster Services/EndpointSlices. Empty = no resources created. |
 
+#### Registry Secrets (2 variables)
+
+| Variable | Default | Purpose |
+|----------|---------|---------|
+| `registry_secrets` | `[]` | List of private-registry credentials. Each entry creates a `kubernetes.io/dockerconfigjson` secret in the listed namespaces. Empty = no resources created. Replaces node-level `k3s_registry_auth`. |
+| `registry_manage_namespaces` | `true` | Create target namespaces if missing. Set `false` when namespaces already managed elsewhere (e.g. ArgoCD). |
+
+Each `registry_secrets` entry shape:
+
+```hcl
+{
+  secret_name = "registry-example"   # name of the k8s secret
+  server      = "registry.example.com"  # registry host
+  username    = "user"
+  password    = "<token>"
+  namespaces  = ["ns-one", "ns-two"]
+}
+```
+
+Pods reference the secret via `imagePullSecrets: gitea-registry` in their spec.
+
 ### HCL examples
 
 #### `eso_aws_cluster_stores`
@@ -525,6 +560,20 @@ external_databases = [
 ]
 ```
 
+#### `registry_secrets`
+
+```hcl
+registry_secrets = [
+  {
+    secret_name = "gitea-example"
+    server      = "registry.example.com"
+    username    = "user"
+    password    = "CHANGE_ME"
+    namespaces  = ["ns-one", "ns-two"]
+  }
+]
+```
+
 ---
 
 ## Secrets & gitignore
@@ -536,7 +585,7 @@ external_databases = [
 | `ansible/inventory/homelab/hosts.ini` | Host IPs |
 | `ansible/inventory/homelab/vars/local.yml` | `vm_username`, `ansible_become_password` |
 | `ansible/inventory/homelab/host_vars/docker-host.yml` | `docker_host_ip`, `ansible_user` |
-| `terraform/terraform.tfvars` | All personal values + secrets (`traefik_dashboard_password`, `eso_aws_*`) |
+| `terraform/terraform.tfvars` | All personal values + secrets (`traefik_dashboard_password`, `eso_aws_*`, `registry_secrets[*].password`) |
 | `terraform/*.tfstate*` | Terraform state |
 | `terraform/.terraform/` | Provider plugins |
 
@@ -556,7 +605,7 @@ external_databases = [
 ### Secret placement
 
 - **Ansible secrets** (`ansible_become_password`) → `vars/local.yml`
-- **Terraform secrets** (`traefik_dashboard_password`, `eso_aws_access_key_id`, `eso_aws_secret_access_key`) → `terraform.tfvars`
+- **Terraform secrets** (`traefik_dashboard_password`, `eso_aws_access_key_id`, `eso_aws_secret_access_key`, `registry_secrets[*].password`) → `terraform.tfvars`
 - `secrets.tfvars` is no longer used. All secrets live in `terraform.tfvars`.
 
 ---
@@ -579,6 +628,10 @@ Fix: Set `vm_username` in `vars/local.yml`.
 
 Behavior: No Services or EndpointSlices created for external databases.
 
+### Empty `registry_secrets`
+
+Behavior: No namespaces or image-pull secrets created. Pods referencing `imagePullSecrets: gitea-registry` will fail with `FailedToRetrieveImagePullSecret`. Add an entry and re-apply.
+
 ### Terraform kubeconfig
 
 Terraform `providers.tf` uses `~/.kube/config` for helm and kubernetes providers. Phase 1 step 03 (`03-kubeconfig.yml`) fetches kubeconfig to this location. If skipped, ensure kubeconfig is present before `make plan`.
@@ -592,7 +645,7 @@ Terraform `providers.tf` uses `~/.kube/config` for helm and kubernetes providers
 | A | `ansible/inventory/homelab/group_vars/all.yml` | Committed defaults for all Ansible vars |
 | A | `ansible/inventory/homelab/vars/local.yml.example` | Template for user overrides |
 | A | `ansible/inventory/homelab/host_vars/docker-host.yml.example` | Template for docker-host vars |
-| B | `terraform/variables.tf` | Single source of truth for all Terraform vars (74 variables) |
+| B | `terraform/variables.tf` | Single source of truth for all Terraform vars (76 variables) |
 | B | `terraform/terraform_example.tfvars` | Template for user values |
 
 Layer A bootstraps the cluster (HAProxy, MariaDB, K3s, kubeconfig). Layer B deploys services onto it (Terraform, Helm). Layer A uses YAML; Layer B uses HCL.

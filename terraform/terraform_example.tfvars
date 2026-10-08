@@ -112,6 +112,20 @@ eso_aws_cluster_stores    = []
 # External Databases — empty = no Services/EndpointSlices created
 external_databases = []
 
+# Registry pull secrets — per-namespace dockerconfigjson image-pull secrets.
+# Replaces node-level k3s registries.yaml auth. Empty = no secrets created.
+# registry_secrets = [
+#   {
+#     secret_name = "registry-name"
+#     server      = "registry.example.com"
+#     username    = "user"
+#     password    = "CHANGE_ME"
+#     namespaces  = ["ns-one", "ns-two"]
+#   }
+# ]
+registry_secrets           = []
+registry_manage_namespaces = true
+
 # CRD bootstrap gate — two-pass apply:
 # Pass 1: enable_crd_manifests=false (installs Helm charts, creates CRDs)
 # Pass 2: enable_crd_manifests=true (applies CRD-dependent manifests)

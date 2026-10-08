@@ -280,3 +280,23 @@ variable "enable_crd_manifests" {
   type        = bool
   default     = false
 }
+
+# Registry pull secrets — per-namespace dockerconfigjson image-pull secrets.
+# Replaces node-level k3s registries.yaml auth (removed from Ansible).
+variable "registry_secrets" {
+  description = "List of private-registry credentials. Empty = no secrets created."
+  type = list(object({
+    secret_name = string
+    server      = string
+    username    = string
+    password    = string
+    namespaces  = list(string)
+  }))
+  default = []
+}
+
+variable "registry_manage_namespaces" {
+  description = "Create target namespaces if missing. Set false when namespaces already managed elsewhere."
+  type        = bool
+  default     = true
+}
