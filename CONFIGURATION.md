@@ -510,11 +510,11 @@ Each `registry_secrets` entry shape:
 
 ```hcl
 {
-  secret_name = "gitea-registry"   # name of the k8s secret
-  server      = "gitea.home.beabys.com"  # registry host
-  username    = "ci-bot"
+  secret_name = "registry-example"   # name of the k8s secret
+  server      = "registry.example.com"  # registry host
+  username    = "user"
   password    = "<token>"
-  namespaces  = ["auth", "auth-bff", "users", "users-bff", "authorizer"]
+  namespaces  = ["ns-one", "ns-two"]
 }
 ```
 
@@ -565,11 +565,11 @@ external_databases = [
 ```hcl
 registry_secrets = [
   {
-    secret_name = "gitea-registry"
-    server      = "gitea.home.beabys.com"
-    username    = "ci-bot"
+    secret_name = "gitea-example"
+    server      = "registry.example.com"
+    username    = "user"
     password    = "CHANGE_ME"
-    namespaces  = ["auth", "auth-bff", "users", "users-bff", "authorizer"]
+    namespaces  = ["ns-one", "ns-two"]
   }
 ]
 ```
